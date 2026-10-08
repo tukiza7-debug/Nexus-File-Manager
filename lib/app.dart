@@ -8,6 +8,7 @@ import 'core/router/router.dart';
 import 'core/theme/legacy_themes.dart';
 import 'core/theme/nexus_theme.dart';
 import 'domain/enums.dart';
+import 'core/utils/responsive.dart';
 import 'state/app_state.dart';
 
 class NexusApp extends ConsumerWidget {
@@ -23,11 +24,13 @@ class NexusApp extends ConsumerWidget {
         MediaQuery.platformBrightnessOf(context) == Brightness.dark,
     };
 
+    final metrics = NexusMetrics.of(context, touchMode: look.touchMode);
     final theme = switch (look.brand) {
       ThemeBrand.nexus => NexusTheme.build(
           bright: dark ? Brightness.dark : Brightness.light,
           accentHex: look.accent,
           colorblindSafe: look.colorblindSafe,
+          density: metrics.visualDensity,
         ),
       ThemeBrand.win98 => LegacyThemes.win98(),
       ThemeBrand.winxp => LegacyThemes.winxp(),
@@ -41,12 +44,12 @@ class NexusApp extends ConsumerWidget {
       themeMode: dark ? ThemeMode.dark : ThemeMode.light,
       routerConfig: ref.watch(routerProvider),
       scrollBehavior: const _ScrollFine(),
-      // Keep phone UI denser: clamp system font scale so chrome/tiles stay compact.
+      // Scale UI to the device screen; clamp font inflation on small phones.
       builder: (context, child) {
         final mq = MediaQuery.of(context);
-        final mobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-        if (!mobile) return child ?? const SizedBox.shrink();
-        final factor = mq.textScaler.scale(1.0).clamp(0.85, 1.0);
+        final look = ref.watch(lookProvider);
+        final m = NexusMetrics.of(context, touchMode: look.touchMode);
+        final factor = mq.textScaler.scale(1.0).clamp(0.85, m.textScaleClamp);
         return MediaQuery(
           data: mq.copyWith(textScaler: TextScaler.linear(factor)),
           child: child ?? const SizedBox.shrink(),

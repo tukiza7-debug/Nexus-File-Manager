@@ -17,6 +17,7 @@ import 'package:window_manager/window_manager.dart';
 import '../../core/services/progress.dart' show OpPhase;
 import '../../core/theme/legacy_themes.dart';
 import '../../core/theme/nexus_theme.dart';
+import '../../core/utils/responsive.dart';
 import '../../core/widgets/widgets.dart';
 import '../../domain/enums.dart';
 import '../../state/app_state.dart';
@@ -443,10 +444,10 @@ class _TitleBarState extends ConsumerState<_TitleBar> {
     final ghostOn = ref.watch(uiProvider.select((s) => s.ghostOpacity)) < 1.0;
     final zen = ref.watch(uiProvider.select((s) => s.zenMode));
 
-    final mobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+    final m = NexusMetrics.of(context, touchMode: ref.watch(lookProvider).touchMode);
     final bar = Container(
-      height: mobile ? 40.0 : 46.0,
-      padding: EdgeInsets.only(left: mobile ? 8.0 : 12.0),
+      height: m.titleBarHeight,
+      padding: EdgeInsets.only(left: m.titleBarPadLeft),
       decoration: BoxDecoration(
         gradient: widget.decor.titleBarGradient,
         border: Border(

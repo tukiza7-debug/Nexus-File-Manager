@@ -1,9 +1,9 @@
+/// Platform capability helpers shared by the interaction layer.
+library;
+
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
-
-/// Platform capability helpers shared by the interaction layer.
-library;
 
 /// True on devices where primary interaction is touch (phones / tablets).
 /// Used to pick tap-to-open vs double-click, Draggable vs

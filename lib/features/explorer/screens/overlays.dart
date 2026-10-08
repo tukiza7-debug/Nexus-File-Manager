@@ -78,7 +78,7 @@ class Overlays {
       context: context,
       builder: (ctx) => _SmartPasteDialog(plan: plan),
     );
-    if (!ok) return;
+    if (ok != true) return;
 
     final batch = svc.journal.newBatch(isCut ? 'smart-move' : 'smart-copy');
     try {
@@ -106,6 +106,9 @@ class Overlays {
     bool permanent = false,
   }) async {
     if (paths.isEmpty) return;
+    // Captured before any await so the post-operation toast never touches a
+    // context across an async gap (audit item 44).
+    final l10n = AppLocalizations.of(context)!;
     final svc = ref.read(servicesProvider);
     final violations = svc.freeze.violations(paths);
     if (violations.isNotEmpty) {
@@ -138,7 +141,7 @@ class Overlays {
       toastAction(
         ref,
         'Deleted $label',
-        actionLabel: AppLocalizations.of(context).undo,
+        actionLabel: l10n.undo,
         onAction: () async {
           try {
             final b = svc.journal.nextUndoBatch();

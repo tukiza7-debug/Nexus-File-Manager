@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/services/rule_engine.dart';
 import '../../core/theme/nexus_theme.dart';
 import '../../core/utils/format_utils.dart' as f;
+import '../../core/utils/logger.dart';
 import '../../core/utils/path_utils.dart' as pu;
 import '../../core/utils/result.dart';
 import '../../core/widgets/widgets.dart';
@@ -675,6 +676,7 @@ class _MetadataTabState extends ConsumerState<MetadataTab> {
     }
     try {
       final meta = await ref.read(servicesProvider).metadata.read(paths.first);
+      if (!mounted) return;
       setState(() {
         _current = meta;
         _loadedFor = paths.first;
@@ -686,7 +688,15 @@ class _MetadataTabState extends ConsumerState<MetadataTab> {
         _ctrls['description']!.text = meta.description ?? '';
         _ctrls['camera']!.text = meta.camera ?? '';
       });
-    } catch (_) {}
+    } catch (e, st) {
+      // Audit item 46: the user picked a file — tell them when it cannot be
+      // read instead of leaving an empty form.
+      logWarn('metadata read failed for ${pu.basename(paths.first)}', e, st);
+      if (mounted) {
+        toast(ref, 'Could not read metadata: ${pu.basename(paths.first)}',
+            error: true);
+      }
+    }
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as pp;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -26,6 +27,16 @@ class DbService {
     return svc;
   }
 
+  /// Audit item 49: in-memory database so service-layer tests can exercise
+  /// real journal/schedule/pipeline persistence without touching disk.
+  @visibleForTesting
+  static DbService openInMemory() {
+    final svc = DbService._(sqlite3.openInMemory());
+    svc._migrate();
+    svc._migrateColumns();
+    return svc;
+  }
+
   /// Column-level migrations for databases created before audit v2.
   void _migrateColumns() {
     final cols = _db.select('PRAGMA table_info(journal)').map((r) => r['name'] as String).toSet();
@@ -34,10 +45,10 @@ class DbService {
     }
     final vcols = _db.select('PRAGMA table_info(versions)').map((r) => r['name'] as String).toSet();
     if (!vcols.contains('mtime')) {
-      _db.execute("ALTER TABLE versions ADD COLUMN mtime INTEGER NOT NULL DEFAULT 0");
+      _db.execute('ALTER TABLE versions ADD COLUMN mtime INTEGER NOT NULL DEFAULT 0');
     }
     if (!vcols.contains('hash')) {
-      _db.execute("ALTER TABLE versions ADD COLUMN hash TEXT NOT NULL DEFAULT ''");
+      _db.execute('ALTER TABLE versions ADD COLUMN hash TEXT NOT NULL DEFAULT \'\'');
     }
   }
 
@@ -611,7 +622,27 @@ class DbService {
       b.writeAll(o.entries.map((e) => '${_write2(e.key.toString())}:${_write2(e.value)}'), ',');
       b.write('}');
     } else {
-      b.write('"$o"');
+      // Model objects (e.g. MacroStep) expose toJson(); without this branch
+      // they used to be serialized as `"Instance of 'MacroStep'"` and could
+      // never round-trip through the database (caught by audit item 49
+      // tests).
+      final j = _tryToJson(o);
+      if (j != null) {
+        _write(j, b);
+      } else {
+        b.write('"$o"');
+      }
+    }
+  }
+
+  /// Returns `o.toJson()` when the object exposes one, else null.
+  static Object? _tryToJson(Object o) {
+    try {
+      final dynamic d = o;
+      final r = d.toJson();
+      return (r is Map || r is List) ? r : null;
+    } on Object {
+      return null;
     }
   }
 
@@ -747,7 +778,9 @@ class _P {
     while (i < s.length && '0123456789+-.eE'.contains(s[i])) {
       i++;
     }
-    final t = s.substring(start);
+    // Audit item 49: the end index was missing — every number followed by
+    // any other JSON content (e.g. `,"at":42}]`) failed to parse.
+    final t = s.substring(start, i);
     return int.tryParse(t) ?? double.parse(t);
   }
 

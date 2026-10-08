@@ -4,6 +4,7 @@ import 'dart:io';
 import '../../domain/enums.dart';
 import '../../domain/models.dart';
 import '../db/nexus_database.dart';
+import '../utils/logger.dart';
 
 /// Multi-Clipboard Stack: every copy/cut lands on a visual stack with a
 /// selectable active entry. The stack persists across launches.
@@ -42,7 +43,9 @@ class ClipboardStackService {
     try {
       final v = DbJsonAccess.decodeList(raw);
       return [for (final e in v) ClipboardEntry.fromJson((e as Map).cast<String, dynamic>())];
-    } catch (_) {
+    } catch (e, st) {
+      // Audit item 46: corrupted persisted stack — report, don't swallow.
+      logWarn('clipboard stack decode failed — starting empty', e, st);
       return const [];
     }
   }

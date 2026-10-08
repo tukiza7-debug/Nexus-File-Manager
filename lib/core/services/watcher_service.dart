@@ -65,7 +65,7 @@ class WatcherService {
     final d = Directory(dir);
     if (!d.existsSync()) return;
     try {
-      _subs[dir] = d.watch(events: FileSystemEvent.all).listen((event) {
+      _subs[dir] = d.watch().listen((event) {
         _enqueue(dir, event);
       }, onError: (_) {});
     } on FileSystemException {

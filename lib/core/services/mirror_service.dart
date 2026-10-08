@@ -190,7 +190,7 @@ class MirrorService {
         raf.closeSync();
       }
     } on FileSystemException {
-      return '${f.path}';
+      return f.path;
     }
   }
 

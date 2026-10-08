@@ -7,6 +7,7 @@ import 'package:exif/exif.dart' as exif;
 import 'package:image/image.dart' as img;
 
 import '../../domain/models.dart';
+import '../utils/logger.dart';
 import '../utils/path_utils.dart' as pu;
 import '../utils/result.dart';
 import 'fs_service.dart';
@@ -35,7 +36,7 @@ class MetadataService {
     }
     final batch = batchId ?? _journal?.newBatch('metadata') ?? '';
     if (_journal != null) {
-      await _journal!.backupCopyForEdit(path, batch);
+      await _journal.backupCopyForEdit(path, batch);
     }
     final tmp =
         pu.join(pu.dirname(path), '.${pu.basename(path)}.nexus-edit');
@@ -115,7 +116,10 @@ class MetadataService {
       if (info != null) {
         return EntryMeta(width: info.width, height: info.height);
       }
-    } catch (_) {}
+    } catch (e, st) {
+      // Audit item 46: never swallow decode failures silently.
+      logWarn('image size decode failed for ${pu.basename(path)}', e, st);
+    }
     return const EntryMeta();
   }
 
@@ -251,7 +255,7 @@ class MetadataService {
     if (audioStart > 0 && audioStart <= bytes.length) {
       out.add(bytes.sublist(audioStart));
     }
-    await _safeWrite(path, () => out.toBytes(), batchId: batchId);
+    await _safeWrite(path, out.toBytes, batchId: batchId);
   }
 
   List<int> _encodeTextFrame(String text) {
@@ -303,7 +307,7 @@ class MetadataService {
     } else {
       out.add(bytes.sublist(2));
     }
-    await _safeWrite(path, () => out.toBytes(), batchId: batchId);
+    await _safeWrite(path, out.toBytes, batchId: batchId);
   }
 
   List<int> _defaultTiff() => [

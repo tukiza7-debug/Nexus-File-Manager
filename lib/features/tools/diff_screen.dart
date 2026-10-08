@@ -8,8 +8,8 @@ import 'dart:isolate';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/nexus_theme.dart';
 import '../../core/services/diff_engine.dart';
+import '../../core/theme/nexus_theme.dart';
 import '../../core/utils/path_utils.dart' as pu;
 import '../../core/widgets/widgets.dart';
 import '../../domain/models.dart';
@@ -115,8 +115,11 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
           icon: const Icon(Icons.swap_horiz_rounded),
         ),
         FilledButton.icon(
-          onPressed: _run,
-          icon: const Icon(Icons.play_arrow_rounded, size: 18),
+          onPressed: _busy ? null : _run,
+          icon: _busy
+              ? const SizedBox(width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.play_arrow_rounded, size: 18),
           label: const Text('Compare'),
         ),
       ],

@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart' as crypto;
 import '../../domain/models.dart';
 import '../db/nexus_database.dart';
 import '../utils/path_utils.dart' as pu;
+import 'journal.dart';
 import 'watcher_service.dart';
 
 /// Auto Versioning: snapshots files whenever they change, stores them under

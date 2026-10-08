@@ -81,10 +81,12 @@ class SchedulerService {
         if (j.intervalMin == null && j.runAtMs != null) enabled = false;
         _db.setScheduleRun(id, at: DateTime.now().millisecondsSinceEpoch,
             status: 'ok', nextRunAt: next);
-        if (!enabled) _db.saveSchedule(ScheduleJob(
-            id: j.id, name: j.name, kind: j.kind, targets: j.targets,
-            arg: j.arg, runAtMs: j.runAtMs, intervalMin: j.intervalMin,
-            enabled: false, lastRunMs: j.lastRunMs, lastStatus: 'ok'));
+        if (!enabled) {
+          _db.saveSchedule(ScheduleJob(
+              id: j.id, name: j.name, kind: j.kind, targets: j.targets,
+              arg: j.arg, runAtMs: j.runAtMs, intervalMin: j.intervalMin,
+              enabled: false, lastRunMs: j.lastRunMs, lastStatus: 'ok'));
+        }
         _events.add(ScheduleEvent(jobName: j.name, ok: true, message: 'completed'));
       } on CancelledException {
         _db.setScheduleRun(id, at: DateTime.now().millisecondsSinceEpoch, status: 'cancelled');

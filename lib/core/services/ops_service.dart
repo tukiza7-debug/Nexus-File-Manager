@@ -143,7 +143,7 @@ class FileOpsService {
     }
     final jobs = <String>[];
     for (final s in sources) {
-      var dst = renamePlan[s] ?? pu.join(destDir, pu.basename(s));
+      final dst = renamePlan[s] ?? pu.join(destDir, pu.basename(s));
       if (sameEntity(s, dst)) continue; // move onto itself → no-op
       jobs.add(dst);
     }
@@ -302,8 +302,19 @@ class FileOpsService {
         report(OpProgress(batchId: batchId, title: 'Compressing ${pu.basename(s)}', done: i, total: inputs.length));
         final t = FileSystemEntity.typeSync(s);
         if (t == FileSystemEntityType.directory) {
-          await encoder.addDirectory(Directory(s),
-              includeDirName: false, filter: (p) => !pu.samePath(File(p).path, zipPath));
+          // archive 3.x addDirectory() has no filter param, so we walk the
+          // tree here and add each file under its relative path — this also
+          // lets us guarantee the output zip is never included in itself.
+          final base = s.endsWith('/') ? s : '$s/';
+          final all = Directory(s).listSync(recursive: true, followLinks: false);
+          for (final fe in all) {
+            if (fe is Directory) continue;
+            if (pu.samePath(fe.path, zipPath)) continue;
+            var rel = fe.path.startsWith(base) ? fe.path.substring(base.length) : pu.basename(fe.path);
+            // Zip paths are always forward-slash separated.
+            rel = rel.replaceAll(r'\', '/');
+            await encoder.addFile(File(fe.path), rel);
+          }
         } else if (t == FileSystemEntityType.file) {
           if (pu.samePath(s, zipPath)) continue;
           await encoder.addFile(File(s));
@@ -396,6 +407,8 @@ class FileOpsService {
     final toWorker = ReceivePort();
     late final SendPort workerInbox;
     var cancelledByMain = false;
+    // ReceivePort has no isOpen getter — track closure manually.
+    var fromWorkerOpen = true;
 
     fromWorker.listen((msg) {
       if (msg is SendPort) {
@@ -408,10 +421,16 @@ class FileOpsService {
         cancelledByMain = cancelled(batchId);
         workerInbox.send(cancelledByMain);
       } else if (msg == 'done') {
-        if (fromWorker.isOpen) fromWorker.close();
+        if (fromWorkerOpen) {
+          fromWorker.close();
+          fromWorkerOpen = false;
+        }
         if (!done.isCompleted) done.complete();
       } else if (msg is String && msg.startsWith('error:')) {
-        if (fromWorker.isOpen) fromWorker.close();
+        if (fromWorkerOpen) {
+          fromWorker.close();
+          fromWorkerOpen = false;
+        }
         if (!done.isCompleted) done.completeError(FileSystemException(msg.substring(6), zipPath));
       }
     });
@@ -428,7 +447,7 @@ class FileOpsService {
     try {
       await done.future;
     } finally {
-      feed.cancel();
+      await feed.cancel();
       fromWorker.close();
       toWorker.close();
     }
@@ -438,7 +457,7 @@ class FileOpsService {
   static void _extractWorker(({String zipPath, String root, SendPort outPort}) args) {
     final inbox = ReceivePort();
     args.outPort.send(inbox.sendPort);
-    bool stop = false;
+    var stop = false;
     inbox.listen((msg) {
       if (msg is bool) stop = msg;
     });
@@ -453,7 +472,13 @@ class FileOpsService {
           Directory(pu.dirname(targetPath)).createSync(recursive: true);
           final output = ar.OutputFileStream(targetPath);
           try {
-            e.writeTo(output);
+            // archive 3.x exposes entry bytes via `content`; write them
+            // through the streaming output so memory stays bounded per
+            // entry.
+            final data = e.content;
+            if (data is List<int>) {
+              output.writeBytes(data);
+            }
           } finally {
             output.closeSync();
           }

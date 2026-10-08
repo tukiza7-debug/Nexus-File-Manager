@@ -228,7 +228,7 @@ class _PeekCardState extends ConsumerState<_PeekCard> {
                   Text(
                       // Audit item 41: platform-aware hint wording.
                       useDesktopHints
-                          ? 'Alt + hover to peek · ${modifierKey} I to pin inspector'
+                          ? 'Alt + hover to peek · $modifierKey I to pin inspector'
                           : 'Long-press an entry for actions · tap to open',
                       style: Theme.of(context).textTheme.labelSmall),
                 ],

@@ -99,7 +99,7 @@ class _PermissionGateState extends ConsumerState<PermissionGate> {
     if (granted) return widget.child;
     final theme = Theme.of(context);
     // Audit item 45: onboarding copy ships in en / id / ms via ARB files.
-    final l10n = AppLocalizations.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(

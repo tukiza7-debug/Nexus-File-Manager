@@ -61,7 +61,7 @@ class RuleEngine {
     // Un-escape balanced character classes so [abc] keeps its meaning
     // (RegExp.escape would otherwise turn it into literal brackets).
     body = body.replaceAllMapped(RegExp(r'\[([^\]\[]*)\]'), (m) => '[${m.group(1)}]');
-    final re = RegExp('^' + body + r'$', caseSensitive: false);
+    final re = RegExp('^$body\$', caseSensitive: false);
     return re.hasMatch(s);
   }
 

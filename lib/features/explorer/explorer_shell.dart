@@ -18,6 +18,7 @@ import 'package:window_manager/window_manager.dart';
 import '../../core/services/progress.dart' show OpPhase;
 import '../../core/theme/legacy_themes.dart';
 import '../../core/theme/nexus_theme.dart';
+import '../../core/utils/logger.dart';
 import '../../core/utils/platform_utils.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/widgets/widgets.dart';
@@ -72,15 +73,16 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
 
   Future<void> _undo() async {
     final svc = ref.read(servicesProvider);
+    final l10n = AppLocalizations.of(context)!; // captured pre-await (item 44)
     final batch = svc.journal.nextUndoBatch();
     if (batch == null) {
-      toast(ref, AppLocalizations.of(context).nothingToUndo);
+      toast(ref, l10n.nothingToUndo);
       return;
     }
     try {
       final desc = await svc.journal
           .undoBatch(batch, onError: (msg) async => toast(ref, msg, error: true));
-      toast(ref, '${AppLocalizations.of(context).undone} · $desc');
+      toast(ref, '${l10n.undone} · $desc');
       ref.read(journalProvider.notifier).reload();
       ref.read(tabsProvider.notifier).refresh();
     } catch (e) {
@@ -90,15 +92,16 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
 
   Future<void> _redo() async {
     final svc = ref.read(servicesProvider);
+    final l10n = AppLocalizations.of(context)!; // captured pre-await (item 44)
     final batch = svc.journal.nextRedoBatch();
     if (batch == null) {
-      toast(ref, AppLocalizations.of(context).nothingToRedo);
+      toast(ref, l10n.nothingToRedo);
       return;
     }
     try {
       final desc = await svc.journal
           .redoBatch(batch, onError: (msg) async => toast(ref, msg, error: true));
-      toast(ref, '${AppLocalizations.of(context).redone} · $desc');
+      toast(ref, '${l10n.redone} · $desc');
       ref.read(journalProvider.notifier).reload();
       ref.read(tabsProvider.notifier).refresh();
     } catch (e) {
@@ -120,7 +123,7 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
   void _showIncomingBanner() {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
-    final l10n = AppLocalizations.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final shares = ref.read(servicesProvider).incoming.pending;
     if (shares.isEmpty) {
       messenger.clearMaterialBanners();
@@ -212,7 +215,6 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
     final look = ref.watch(lookProvider);
     final decor = LegacyThemes.decorFor(look.brand,
         Theme.of(context).brightness);
-    final l10n = AppLocalizations.of(context);
     // Audit item 42: phones get the sidebar as a Drawer instead of a
     // permanently-pinned column.
     final phone = MediaQuery.sizeOf(context).width < 600;
@@ -283,7 +285,7 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
             key: _scaffoldKey,
             backgroundColor: Colors.transparent,
             drawer: phone
-                ? Drawer(
+                ? const Drawer(
                     width: 304,
                     child: SafeArea(child: Sidebar(flush: true)))
                 : null,
@@ -423,7 +425,11 @@ class _GhostWrapState extends ConsumerState<_GhostWrap> {
         windowManager.setOpacity(opacity);
         _applied = opacity;
         return;
-      } catch (_) {}
+      } catch (e, st) {
+        // Audit item 46: window opacity is best-effort — log and fall back
+        // to the in-app translucency path below.
+        logWarn('windowManager.setOpacity failed', e, st);
+      }
     }
     _applied = opacity;
     if (mounted) setState(() {});
@@ -472,7 +478,7 @@ class _TitleBarState extends ConsumerState<_TitleBar> {
   Widget build(BuildContext context) {
     final ghostOn = ref.watch(uiProvider.select((s) => s.ghostOpacity)) < 1.0;
     final zen = ref.watch(uiProvider.select((s) => s.zenMode));
-    final l10n = AppLocalizations.of(context);
+    final l10n = AppLocalizations.of(context)!;
     // Audit item 41: platform-aware modifier — ⌘ on Apple, Ctrl elsewhere.
     final mod = modifierKey;
 
@@ -500,7 +506,6 @@ class _TitleBarState extends ConsumerState<_TitleBar> {
               'assets/logo/nexus-icon.svg',
               width: 20,
               height: 20,
-              fit: BoxFit.contain,
             ),
           const SizedBox(width: 9),
           if (!zen)
@@ -658,7 +663,7 @@ class _MacroFab extends ConsumerWidget {
       foregroundColor: Colors.white,
       onPressed: () => context.go('/tools/automation'),
       icon: const Icon(Icons.fiber_manual_record_rounded, size: 18),
-      label: Text(AppLocalizations.of(context).recordingMacro),
+      label: Text(AppLocalizations.of(context)!.recordingMacro),
     );
     if (!animate) return fab;
     return fab.animate(onPlay: (c) => c.repeat(reverse: true)).fadeIn().shake();
@@ -673,7 +678,7 @@ class _StatusBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final l10n = AppLocalizations.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final tab = ref.watch(tabsProvider.select((s) => s.active));
     final dir = ref.watch(dirProvider);
     ref.watch(clipboardProvider);

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import '../../domain/models.dart';
@@ -72,7 +73,11 @@ class TemplateService {
         .replaceAll('{{year}}', '${now.year}');
   }
 
-  static String utf8ish(List<int> bytes) => String.fromCharCodes(bytes);
+  /// Audit item 47: decode template bytes as UTF-8 with malformed-sequence
+  /// tolerance. `String.fromCharCodes` (the old behaviour) silently mangles
+  /// every multi-byte character (é, 中, emoji…) in user templates.
+  static String utf8ish(List<int> bytes) =>
+      utf8.decode(bytes, allowMalformed: true);
 
   static String _uniquePath(String dir, String name) {
     var candidate = pu.join(dir, name);

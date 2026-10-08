@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show compute, kIsWeb;
-import 'package:flutter/services.dart' show MethodChannel;
+import 'package:flutter/services.dart' show MethodChannel, MissingPluginException;
 import 'package:share_plus/share_plus.dart';
 
 import '../../domain/enums.dart';
@@ -13,7 +13,7 @@ import 'progress.dart';
 /// Pure-Dart FS listing + classification. All operations funnel through here
 /// so behavior is identical across desktop and mobile.
 class FileSystemService {
-  const FileSystemService();
+  FileSystemService();
 
   /// Last listing per path — shown immediately while a refresh runs
   /// (audit item 29).

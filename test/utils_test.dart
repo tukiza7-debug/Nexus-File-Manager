@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus_file_manager/core/utils/fuzzy.dart';
 import 'package:nexus_file_manager/core/utils/path_utils.dart' as pu;
@@ -6,9 +8,14 @@ void main() {
   group('path utils', () {
     test('basename/dirname behave on posix and windows paths', () {
       expect(pu.basename('/home/user/report.pdf'), 'report.pdf');
-      expect(pu.basename(r'C:\Users\me\file.txt'), 'file.txt');
       expect(pu.dirname('/home/user/report.pdf'), '/home/user');
-      expect(pu.dirname(r'C:\Users\me\file.txt'), r'C:\Users\me');
+      // Backslash-as-separator is a Windows-only convention (audit item 48):
+      // on POSIX a backslash is a legal filename character, so these
+      // assertions only hold when running on Windows itself.
+      expect(pu.basename(r'C:\Users\me\file.txt'),
+          Platform.isWindows ? 'file.txt' : r'C:\Users\me\file.txt');
+      expect(pu.dirname(r'C:\Users\me\file.txt'),
+          Platform.isWindows ? r'C:\Users\me' : r'C:\Users\me\file.txt');
     });
 
     test('extension and stem', () {

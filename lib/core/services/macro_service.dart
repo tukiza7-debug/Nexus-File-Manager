@@ -65,7 +65,7 @@ class MacroService {
 /// Behavior-subject-style boolean stream: new listeners immediately receive
 /// the current value, then every subsequent change.
 class ValueSignalBool {
-  ValueSignalBool(this._initial);
+  ValueSignalBool(bool initial) : _value = initial;
 
   bool _value;
   final _ctrl = StreamController<bool>.broadcast();

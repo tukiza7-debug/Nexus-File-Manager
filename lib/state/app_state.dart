@@ -36,6 +36,7 @@ import '../core/services/template_service.dart';
 import '../core/services/versioning_service.dart';
 import '../core/services/watchdog_service.dart';
 import '../core/services/watcher_service.dart';
+import '../core/utils/logger.dart';
 import '../core/utils/path_utils.dart' as pu;
 import '../domain/enums.dart';
 import '../domain/models.dart';
@@ -55,7 +56,7 @@ class AppServices {
   late final freeze = FreezeService(db);
   late final cancels = CancelRegistry();
   late final ops = FileOpsService(journal, cancels, freeze.frozenRoots);
-  late final fs = const FileSystemService();
+  late final fs = FileSystemService();
   late final clipboard = ClipboardStackService(db);
   late final smartPaste = const SmartPasteResolver();
   late final split = const SplitService();
@@ -71,7 +72,7 @@ class AppServices {
   late final watchdogs = WatchdogService(db, ops, watchers, pipelines, versioning, journal);
   late final mirrors = MirrorService(db, ops, watchers, journal);
   late final scheduler = SchedulerService(db, ops, pipelines, mirrors);
-  late final teleport = TeleportService(ops);
+  late final teleport = TeleportService();
   late final incoming = IncomingShareService();
 
   final watchdogFeed = <WatchdogEvent>[];
@@ -107,7 +108,10 @@ class AppServices {
         await Directory(dir).create(recursive: true);
         final name = prefs.getString('teleport.name') ?? Platform.localHostname;
         await teleport.start(name: name, downloadTo: dir);
-      } catch (_) {}
+      } catch (e, st) {
+        // Audit item 46: Teleport failing to boot must be observable.
+        logError('teleport service failed to start', e, st);
+      }
     }());
   }
 

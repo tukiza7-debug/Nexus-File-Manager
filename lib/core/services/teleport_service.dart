@@ -4,8 +4,8 @@ import 'dart:io';
 import 'dart:math';
 
 import '../../domain/models.dart';
+import '../utils/logger.dart';
 import '../utils/path_utils.dart' as pu;
-import 'ops_service.dart';
 import 'progress.dart';
 
 /// File Teleport — send files to other Nexus instances on the local network.
@@ -29,7 +29,7 @@ import 'progress.dart';
 ///  * the whole handler is wrapped in try/catch;
 ///  * servers stop when Teleport is switched off.
 class TeleportService {
-  TeleportService(this._ops);
+  TeleportService();
 
   static const int discoveryPort = 48481;
   static const int transferPort = 48482;
@@ -37,7 +37,6 @@ class TeleportService {
   /// Maximum accepted file size per transfer (default 4 GiB).
   int maxFileBytes = 4 * 1024 * 1024 * 1024 ~/ 2; // 2 GiB to stay in int range
 
-  final FileOpsService _ops;
   final _peers = <String, TeleportPeer>{};
   final _peersCtrl = StreamController<List<TeleportPeer>>.broadcast();
   final _inboxCtrl = StreamController<TransferEvent>.broadcast();
@@ -79,7 +78,10 @@ class TeleportService {
   static String? _decodeField(String value) {
     try {
       return Uri.decodeComponent(value);
-    } on ArgumentError {
+    } on Object {
+      // Audit item 25/49: any malformed escape (ArgumentError,
+      // FormatException, RangeError) must degrade to "rejected", never
+      // propagate out of the discovery loop.
       return null;
     }
   }
@@ -118,21 +120,36 @@ class TeleportService {
 
   static bool get kIsWebLike => identical(0, 0.0); // placeholder, always false
 
+  /// Audit item 49: pure protocol parser so the hello format can be
+  /// fuzz-tested without sockets. Returns null for anything malformed.
+  static ({String type, String peerId, String name, String platform})?
+      parseHello(String msg) {
+    final parts = msg.split('|');
+    if (parts.length < 5 || parts[0] != 'NEXUS_TP_V2') return null;
+    final type = parts[1];
+    if (type != 'ANNOUNCE' && type != 'REPLY') return null;
+    final peerId = parts[2];
+    if (peerId.isEmpty) return null;
+    final name = _decodeField(parts[3]);
+    if (name == null || name.isEmpty) return null; // malformed — ignore
+    return (
+      type: type,
+      peerId: peerId,
+      name: name,
+      platform: parts[4],
+    );
+  }
+
   void _onDatagram(Datagram dg) {
     try {
       final msg = utf8.decode(dg.data, allowMalformed: true);
-      final parts = msg.split('|');
-      if (parts.length < 5 || parts[0] != 'NEXUS_TP_V2') return;
-      final type = parts[1];
-      if (type != 'ANNOUNCE' && type != 'REPLY') return;
-      final peerId = parts[2];
-      if (peerId == deviceId) return;
-      final name = _decodeField(parts[3]);
-      if (name == null || name.isEmpty) return; // malformed — ignore
+      final hello = parseHello(msg);
+      if (hello == null) return;
+      if (hello.peerId == deviceId) return;
       final peer = TeleportPeer(
-        id: peerId,
-        name: name,
-        platform: parts[4],
+        id: hello.peerId,
+        name: hello.name,
+        platform: hello.platform,
         ip: dg.address.address,
         port: transferPort,
         seen: DateTime.now(),
@@ -140,20 +157,41 @@ class TeleportService {
       _peers[peer.id] = peer;
       _peersCtrl.add(currentPeers());
       // Audit item 24: never reply to a reply; rate-limit per peer.
-      if (type == 'REPLY') return;
-      if (trustedDevices.isNotEmpty && !trustedDevices.contains(peerId)) return;
+      if (hello.type == 'REPLY') return;
+      if (trustedDevices.isNotEmpty && !trustedDevices.contains(hello.peerId)) return;
       final now = DateTime.now().millisecondsSinceEpoch;
-      final last = _lastReply[peerId];
+      final last = _lastReply[hello.peerId];
       if (last != null && now - last < _replyIntervalMs) return;
-      _lastReply[peerId] = now;
+      _lastReply[hello.peerId] = now;
       _udp!.send(_hello('REPLY'), dg.address, discoveryPort);
-    } catch (_) {
-      // Malformed input must never crash the discovery loop (item 25).
+    } catch (e, st) {
+      // Malformed input must never crash the discovery loop (item 25);
+      // item 46: it is logged so bad peers are observable.
+      logWarn('teleport discovery: malformed datagram', e, st);
     }
   }
 
   List<int> _hello(String type) => utf8.encode(
       'NEXUS_TP_V2|$type|$deviceId|${_encodeField(deviceName)}|${Platform.operatingSystem}');
+
+  /// Audit item 20: best-effort free-space probe via `df` (POSIX/Android).
+  /// Returns null when the platform cannot report it — the transfer then
+  /// proceeds and fails naturally if the disk fills.
+  static int? _bestEffortFreeSpace(String dirPath) {
+    try {
+      final r = Process.runSync('df', ['-k', dirPath]);
+      final lines = r.stdout.toString().trim().split('\n');
+      if (lines.length < 2) return null;
+      final cols = lines.last
+          .split(RegExp(r'\s+'))
+          .where((c) => c.isNotEmpty)
+          .toList();
+      if (cols.length < 4) return null;
+      return int.tryParse(cols[3]); // avail (1K blocks)
+    } on Object {
+      return null;
+    }
+  }
 
   Future<void> _bindTcp() async {
     try {
@@ -195,8 +233,12 @@ class TeleportService {
       Future<void> startFile(String name, int size) async {
         final dir = Directory(downloadDir);
         if (!dir.existsSync()) dir.createSync(recursive: true);
-        if (size > 0 && dir.usableSpace < size) {
-          throw const FileSystemException('Not enough free space for the incoming file');
+        if (size > 0) {
+          final free = _bestEffortFreeSpace(downloadDir);
+          if (free != null && free < size) {
+            throw const FileSystemException(
+                'Not enough free space for the incoming file');
+          }
         }
         final unique = _uniqueName(name);
         final path = pu.join(downloadDir, unique);
@@ -269,7 +311,7 @@ class TeleportService {
             // Payload phase.
             final take = (chunk.length - i).clamp(0, _activeSize - _received);
             if (take > 0) {
-              out.writeFromSync(chunk, i, i + take);
+              out?.writeFromSync(chunk, i, i + take);
               _received += take;
               i += take;
               _progressCtrl.add(OpProgress(
@@ -282,8 +324,8 @@ class TeleportService {
               ));
             }
             if (_received >= _activeSize) {
-              out.flushSync();
-              await out.close();
+              out?.flushSync();
+              await out?.close();
               out = null;
               batchReceived++;
               _inboxCtrl.add(TransferEvent(
@@ -315,7 +357,7 @@ class TeleportService {
   }
 
   // Per-file bookkeeping for the streaming parser.
-  String _currentSenderName = '';
+  final String _currentSenderName = '';
   String _activeName = '';
   int _activeSize = 0;
   int _received = 0;

@@ -47,7 +47,7 @@ class PipelineService {
         'ext' => () {
           // Audit item 19: an empty target extension must not produce a
           // trailing dot.
-          final target = (step.args['ext'] ?? '') as String;
+          final target = step.args['ext'] ?? '';
           if (target.isEmpty) return name;
           return ext.isEmpty ? '$name.$target' : '$stem.$target';
         }(),

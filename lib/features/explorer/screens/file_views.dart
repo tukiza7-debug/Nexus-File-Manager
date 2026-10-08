@@ -566,13 +566,7 @@ class _FileTileState extends ConsumerState<FileTile> {
     final entry = widget.entry;
     final selected = ref.watch(
         tabsProvider.select((s) => s.active.selection.contains(entry.path)));
-    // Audit item 28: narrow watch — only the fields this tile consumes,
-    // so unrelated UI-state churn no longer rebuilds every tile.
-    final tunnelPath = ref.watch(uiProvider.select((u) => u.focusTunnelPath));
     final colorblindSafe = ref.watch(lookProvider.select((l) => l.colorblindSafe));
-
-    final tunnelActive = tunnelPath != null;
-    final dimmed = tunnelActive && tunnelPath != entry.path;
 
     final tile = RepaintBoundary(
       child: FileTileBody(
@@ -612,13 +606,15 @@ class _FileTileState extends ConsumerState<FileTile> {
   }
 
   Widget _buildDrag(NexusEntry entry, Widget tile, bool colorblindSafe) {
-    final onDragStarted = () {
+    void onDragStarted() {
       ref.read(chrome.dragActiveProvider.notifier).state = true;
       final sel = ref.read(tabsProvider).active.selection;
       ref.read(chrome.dragPathsProvider.notifier).state =
           sel.contains(entry.path) ? sel.toList() : [entry.path];
-    };
-    final onDragEnd = (_) => ref.read(chrome.dragActiveProvider.notifier).state = false;
+    }
+
+    void onDragEnd(_) =>
+        ref.read(chrome.dragActiveProvider.notifier).state = false;
     // Audit item 27: LongPressDraggable on touch so drags do not fight the
     // scroll gesture; plain Draggable stays on desktop.
     final Widget drag = isTouchDevice
@@ -890,7 +886,3 @@ class _Feedback extends ConsumerWidget {
     );
   }
 }
-
-// GridView delegate alias to keep the import list short.
-typedef SlGridDelegateWithMaxCrossAxisExtent = SliverGridDelegateWithMaxCrossAxisExtent;
-typedef SlGridDelegateWithFixedCrossAxisCount = SliverGridDelegateWithFixedCrossAxisCount;

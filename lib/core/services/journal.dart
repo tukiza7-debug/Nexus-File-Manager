@@ -332,7 +332,7 @@ class OperationJournal {
       if (!FileOpsBridge.isCrossDevice(e)) rethrow;
     }
     // Same-volume fallback trash.
-    final volumeTrash = Directory(pu.join(FileOpsBridge.volumeRootOf(path), '.nexus-trash', batchId));
+    final volumeTrash = Directory(pu.join(pu.join(FileOpsBridge.volumeRootOf(path), '.nexus-trash'), batchId));
     volumeTrash.createSync(recursive: true);
     final altDest = _uniqueTrashName(volumeTrash.path, pu.basename(path));
     final before = _countEntries(path);

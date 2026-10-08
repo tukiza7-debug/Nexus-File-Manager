@@ -22,18 +22,13 @@ class SmartPasteResolver {
       final name = pu.basename(src);
       final target = pu.join(destDir, name);
       final exists = FileSystemEntity.typeSync(target) != FileSystemEntityType.notFound;
-      final sameFile = exists && _identical(src, target);
-      decisions.add(PasteDecision(src, name, target, exists && !sameFile, strategy: defaultStrategy));
+      // Audit item 1: detect pasting an item onto itself (same folder paste,
+      // or a copy into the folder that contains it).
+      final sameFile = exists && FileOpsService.sameEntity(src, target);
+      decisions.add(PasteDecision(src, name, target, exists && !sameFile,
+          strategy: defaultStrategy, sameFile: sameFile));
     }
     return PastePlan(decisions, isCut: isCut, destDir: destDir);
-  }
-
-  static bool _identical(String a, String b) {
-    try {
-      return FileSystemEntity.identicalSync(a, b);
-    } on FileSystemException {
-      return false;
-    }
   }
 
   /// Executes a resolved plan via [ops].
@@ -41,17 +36,21 @@ class SmartPasteResolver {
     final renamePlan = <String, String>{};
     final skipped = <String>[];
     for (final d in plan.decisions) {
+      // Pasting a file onto itself: a move is a no-op, a copy must land
+      // under a unique "name (2).ext" (audit item 1).
+      if (d.sameFile) {
+        if (plan.isCut) {
+          skipped.add(d.name);
+          continue;
+        }
+        renamePlan[d.source] = FileOpsService.uniqueCopyName(d.target);
+        continue;
+      }
       switch (d.resolved) {
         case ConflictStrategy.skip:
           skipped.add(d.name);
         case ConflictStrategy.keepBoth:
-          var n = 2;
-          var candidate = pu.withCounter(d.target, n);
-          while (FileSystemEntity.typeSync(candidate) != FileSystemEntityType.notFound) {
-            n++;
-            candidate = pu.withCounter(d.target, n);
-          }
-          renamePlan[d.source] = candidate;
+          renamePlan[d.source] = FileOpsService.uniqueCopyName(d.target);
         case ConflictStrategy.overwrite:
           renamePlan[d.source] = d.target;
         case ConflictStrategy.compare:
@@ -81,13 +80,17 @@ class PastePlan {
 }
 
 class PasteDecision {
-  PasteDecision(this.source, this.name, this.target, this.conflict, {required this.strategy});
+  PasteDecision(this.source, this.name, this.target, this.conflict,
+      {required this.strategy, this.sameFile = false});
 
   final String source;
   final String name;
   final String target;
   final bool conflict;
   final ConflictStrategy strategy;
+
+  /// True when source and target are the same filesystem entity.
+  final bool sameFile;
 
   ConflictStrategy get resolved =>
       conflict ? strategy : ConflictStrategy.overwrite; // no conflict → plain move/copy

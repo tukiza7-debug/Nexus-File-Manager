@@ -11,6 +11,15 @@ import 'pipeline_service.dart';
 
 /// Scheduled Actions: runs copy/move/delete/compress/pipeline jobs either
 /// once at a specific time or on an interval while the app is open.
+///
+/// Audit item 15:
+///  * every job runs inside a catch-all — any error records status 'error'
+///    and one-shot jobs are disabled so they stop re-firing every tick;
+///  * a per-job running lock prevents overlapping ticks from starting the
+///    same job twice;
+///  * the 'mirror' job runs only the mirror selected in the job's targets
+///    (falls back to none);
+///  * schedules only run while the app is open — the UI surfaces this.
 class SchedulerService {
   SchedulerService(this._db, this._ops, this._pipelines, this._mirrors);
 
@@ -20,6 +29,7 @@ class SchedulerService {
   final MirrorService _mirrors;
 
   Timer? _timer;
+  final _running = <int, bool>{};
   final _events = StreamController<ScheduleEvent>.broadcast();
   Stream<ScheduleEvent> get events => _events.stream;
 
@@ -31,41 +41,77 @@ class SchedulerService {
 
   void stop() => _timer?.cancel();
 
+  bool isRunning(int jobId) => _running[jobId] ?? false;
+
   Future<void> tick() async {
     final now = DateTime.now().millisecondsSinceEpoch;
     for (final job in _db.schedules()) {
       if (!job.enabled) continue;
+      if (_running[job.id!] ?? false) continue; // per-job re-entrancy lock
       final due = job.intervalMin != null
           ? (job.lastRunMs == null ||
               now - job.lastRunMs! >= job.intervalMin! * 60 * 1000)
           : job.runAtMs != null && job.runAtMs! <= now;
       if (!due) continue;
-      await run(job.id!);
+      // Fire-and-forget so one slow job cannot starve the others, but the
+      // lock above keeps it single-instance.
+      unawaited(run(job.id!));
     }
   }
 
   Future<void> run(int id) async {
-    final jobs = _db.schedules();
-    final j = jobs.firstWhere((x) => x.id == id);
-    final batchId = _journalBatch(j.name);
+    if (_running[id] ?? false) return;
+    _running[id] = true;
     try {
-      await _execute(j, batchId);
-      final next = j.intervalMin != null
-          ? DateTime.now().add(Duration(minutes: j.intervalMin!)).millisecondsSinceEpoch
-          : null;
-      _db.setScheduleRun(id, at: DateTime.now().millisecondsSinceEpoch,
-          status: 'ok', nextRunAt: next);
-      _events.add(ScheduleEvent(jobName: j.name, ok: true, message: 'completed'));
-    } on FileSystemException catch (e) {
-      _db.setScheduleRun(id, at: DateTime.now().millisecondsSinceEpoch, status: 'error: ${e.message}');
-      _events.add(ScheduleEvent(jobName: j.name, ok: false, message: e.message));
-    } on CancelledException {
-      _db.setScheduleRun(id, at: DateTime.now().millisecondsSinceEpoch, status: 'cancelled');
+      final jobs = _db.schedules();
+      final ScheduleJob j;
+      try {
+        j = jobs.firstWhere((x) => x.id == id);
+      } on StateError {
+        return; // job deleted while running
+      }
+      final batchId = _journalBatch();
+      try {
+        await _execute(j, batchId);
+        final next = j.intervalMin != null
+            ? DateTime.now().add(Duration(minutes: j.intervalMin!)).millisecondsSinceEpoch
+            : null;
+        // One-shot jobs disable themselves after a successful run.
+        var enabled = j.enabled;
+        if (j.intervalMin == null && j.runAtMs != null) enabled = false;
+        _db.setScheduleRun(id, at: DateTime.now().millisecondsSinceEpoch,
+            status: 'ok', nextRunAt: next);
+        if (!enabled) {
+          _db.saveSchedule(ScheduleJob(
+              id: j.id, name: j.name, kind: j.kind, targets: j.targets,
+              arg: j.arg, runAtMs: j.runAtMs, intervalMin: j.intervalMin,
+              enabled: false, lastRunMs: j.lastRunMs, lastStatus: 'ok'));
+        }
+        _events.add(ScheduleEvent(jobName: j.name, ok: true, message: 'completed'));
+      } on CancelledException {
+        _db.setScheduleRun(id, at: DateTime.now().millisecondsSinceEpoch, status: 'cancelled');
+        _events.add(ScheduleEvent(jobName: j.name, ok: false, message: 'cancelled'));
+      } catch (e) {
+        // Catch-all: StateError/ArgumentError/cast failures must not leave
+        // the job silently re-running every 20 s (audit item 15).
+        final msg = _short(e.toString());
+        _db.setScheduleRun(id, at: DateTime.now().millisecondsSinceEpoch, status: 'error: $msg');
+        _events.add(ScheduleEvent(jobName: j.name, ok: false, message: msg));
+        if (j.intervalMin == null && j.runAtMs != null) {
+          _db.saveSchedule(ScheduleJob(
+              id: j.id, name: j.name, kind: j.kind, targets: j.targets,
+              arg: j.arg, runAtMs: j.runAtMs, intervalMin: j.intervalMin,
+              enabled: false, lastRunMs: j.lastRunMs, lastStatus: 'error'));
+        }
+      }
+    } finally {
+      _running[id] = false;
     }
   }
 
-  String _journalBatch(String label) =>
-      'sched-${DateTime.now().millisecondsSinceEpoch}-$label';
+  static String _short(String s) => s.length > 140 ? '${s.substring(0, 140)}…' : s;
+
+  String _journalBatch() => DateTime.now().microsecondsSinceEpoch.toString();
 
   Future<void> _execute(ScheduleJob j, String batchId) async {
     final srcs = ((j.targets['sources'] as List?) ?? const []).cast<String>();
@@ -81,15 +127,25 @@ class SchedulerService {
         await _ops.deletePaths(srcs, batchId: batchId);
       case 'compress':
         final name = j.arg.isEmpty ? 'archive-${DateTime.now().millisecondsSinceEpoch}.zip' : j.arg;
-        await _ops.compressToZip(srcs, pu.join(dest.isEmpty ? pu.dirname(srcs.first) : dest, name),
-            batchId: batchId);
+        final zipPath = pu.join(dest.isEmpty ? pu.dirname(srcs.first) : dest, name);
+        // Scheduled jobs never overwrite silently: land on a unique name.
+        final uniqueZip = FileOpsService.uniqueCopyName(zipPath);
+        await _ops.compressToZip(srcs, uniqueZip, batchId: batchId);
       case 'pipeline':
         final p = _pipelines.byId(int.tryParse(j.arg) ?? -1);
         if (p != null) await _pipelines.run(p, srcs, batchId: batchId);
       case 'mirror':
-        for (final m in _db.mirrors()) {
-          if (m.enabled) await _mirrors.fullSync(m);
+        // Run only the mirror selected for this job (audit item 15 / S14).
+        final selectedId = int.tryParse('${j.targets['mirrorId'] ?? ''}');
+        if (selectedId == null) {
+          throw const FileSystemException(
+              'Mirror job has no mirror selected. Edit the job and pick one.');
         }
+        final m = _db.mirrors().where((m) => m.id == selectedId).firstOrNull;
+        if (m == null) {
+          throw FileSystemException('Selected mirror (id $selectedId) no longer exists');
+        }
+        if (m.enabled) await _mirrors.fullSync(m, batchId: batchId);
     }
   }
 

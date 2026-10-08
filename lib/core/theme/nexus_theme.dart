@@ -338,7 +338,7 @@ class NexusTheme {
             bodySmall: TextStyle(fontSize: 12.5, color: NexusColors.textDimDark),
             labelLarge: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: NexusColors.textDark),
             labelMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: NexusColors.textDimDark),
-            labelSmall: TextStyle(fontSize: 10.5, letterSpacing: 0.4, color: NexusColors.textDimDark),
+            labelSmall: TextStyle(fontSize: 11, letterSpacing: 0.4, color: NexusColors.textDimDark),
           )
         : const TextTheme(
             displayLarge: TextStyle(fontSize: 44, fontWeight: FontWeight.w700, letterSpacing: -1.2, color: NexusColors.textLight),
@@ -354,7 +354,7 @@ class NexusTheme {
             bodySmall: TextStyle(fontSize: 12.5, color: NexusColors.textDimLight),
             labelLarge: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: NexusColors.textLight),
             labelMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: NexusColors.textDimLight),
-            labelSmall: TextStyle(fontSize: 10.5, letterSpacing: 0.4, color: NexusColors.textDimLight),
+            labelSmall: TextStyle(fontSize: 11, letterSpacing: 0.4, color: NexusColors.textDimLight),
           );
     return base;
   }

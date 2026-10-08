@@ -149,6 +149,7 @@ class JournalEntry {
     this.meta,
     required this.createdAtMs,
     this.undone = false,
+    this.discarded = false,
   });
 
   final int? id;
@@ -159,6 +160,9 @@ class JournalEntry {
   final String? meta;
   final int createdAtMs;
   final bool undone;
+
+  /// True when a newer operation invalidated the redo of this entry.
+  final bool discarded;
 
   String get display => switch (op) {
         JournalOp.copy => 'copied to ${p.basename(toPath ?? '')}',
@@ -401,12 +405,20 @@ class VersionSnapshot {
     required this.snapshotPath,
     required this.size,
     required this.createdAtMs,
+    this.mtimeMs = 0,
+    this.hash = '',
   });
   final int? id;
   final String originalPath;
   final String snapshotPath;
   final int size;
   final int createdAtMs;
+
+  /// Source mtime at snapshot time — used for dedupe (audit item 17).
+  final int mtimeMs;
+
+  /// Content hash at snapshot time — used for dedupe (audit item 17).
+  final String hash;
 }
 
 class MirrorPair {

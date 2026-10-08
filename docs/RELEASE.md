@@ -49,16 +49,44 @@ Continuous builds from `main` (no tag) overwrite the **Latest Build (Auto)**
 pre-release tagged `latest` with fresh APKs — handy for testers who just want
 the newest build.
 
-## Signing status (important)
+## Signing (Android)
 
-CI artifacts are built **without production signing credentials** — the repo
-deliberately contains no secrets:
+Since v1.0.2 (audit item 23) the Gradle build signs release artifacts with a
+real keystore when credentials are provided as repository secrets, and falls
+back to the debug keystore otherwise so CI source builds stay installable:
 
-- **Android** — release builds fall back to the debug keystore so the APK is
-  installable for testing. Before publishing to Google Play, generate a
-  release keystore, add `key.properties` (git-ignored) and a
-  `signingConfigs.release` block in `android/app/build.gradle`, and switch the
-  release build type to it.
+| GitHub secret | Contents |
+|---------------|----------|
+| `KEYSTORE_BASE64` | Base64 of the release `.jks`/`.keystore` file |
+| `KEYSTORE_PASSWORD` | Keystore password |
+| `KEY_ALIAS` | Key alias inside the keystore |
+| `KEY_PASSWORD` | Key password |
+
+The workflow decodes `KEYSTORE_BASE64` into `android/key.properties`
+(git-ignored) before running Gradle. Locally you can simply drop a
+`key.properties` file next to `android/build.gradle`. After every build the
+workflow prints the APK certificate SHA-256 (`apksigner verify --print-certs`)
+so logs prove the same key is used across releases.
+
+> **Signing-key incompatibility note:** Android refuses to *update* an
+> installed app when the signing key changes. Every build up to and including
+> v1.0.5 was signed with a per-run CI debug key — the certificates verifiably
+> differ between releases (v1.0.2 SHA-256 `3522…5152`, v1.0.5 SHA-256
+> `E638…F10F`, both `CN=Android Debug`), which is why those builds could not
+> update over each other. From **v1.1.0** the dedicated release keystore is
+> provisioned through repository secrets and every current and future build
+> uses the SAME key:
+>
+> - Alias: `nexus-release`
+> - Certificate SHA-256: `D3:83:27:8D:B7:AA:78:61:46:D8:BC:68:5C:AA:D4:DC:2B:1B:70:60:AE:08:B7:68:91:DB:19:46:C3:71:78:1C`
+> - Valid until: 30 September 2056
+>
+> Installing v1.1.0 (or any later build) over a v1.0.x installation requires a
+> **one-time uninstall first**; app-private data is removed by that uninstall,
+> so back up before switching. From v1.1.0 onward updates install directly
+> over each other. Keep the `.jks` backup forever — losing it means losing
+> the ability to ship updates, and never commit it to git (it is ignored).
+
 - **macOS / iOS** — unsigned. On macOS, right-click the app and choose
   **Open** on first run (Gatekeeper). On iOS, sideload via Xcode, Apple
   Configurator, or AltStore with your own development certificate.

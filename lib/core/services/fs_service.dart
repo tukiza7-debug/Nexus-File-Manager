@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/foundation.dart' show compute, kIsWeb;
+import 'package:flutter/services.dart' show MethodChannel, MissingPluginException;
+import 'package:share_plus/share_plus.dart';
 
 import '../../domain/enums.dart';
 import '../../domain/models.dart';
@@ -11,14 +13,74 @@ import 'progress.dart';
 /// Pure-Dart FS listing + classification. All operations funnel through here
 /// so behavior is identical across desktop and mobile.
 class FileSystemService {
-  const FileSystemService();
+  FileSystemService();
 
-  /// Lists a directory inside an isolate (fast even with 100k entries).
+  /// Last listing per path — shown immediately while a refresh runs
+  /// (audit item 29).
+  final Map<String, List<NexusEntry>> _listingCache = {};
+
+  /// Returns the cached listing for [path] (or null).
+  List<NexusEntry>? cachedListing(String path) => _listingCache[path];
+
+  /// Lists a directory. Small folders (< [_isolateThreshold] entries) read
+  /// with async Directory.list() on the UI isolate; large ones run inside
+  /// an isolate. Avoids spawning one isolate per reload (audit item 29).
   Future<List<NexusEntry>> listDir(String path) async {
     final dir = Directory(path);
     if (!dir.existsSync()) return const [];
-    final entries = await compute(_listSync, path);
-    return entries;
+    final quick = <NexusEntry>[];
+    var count = 0;
+    var overflow = false;
+    try {
+      await for (final e in dir.list(followLinks: false)) {
+        if (e is Link) continue;
+        count++;
+        if (count > _isolateThreshold) {
+          overflow = true;
+          break;
+        }
+        try {
+          final stat = e.statSync();
+          final name = pu.basename(e.path);
+          if (name.isEmpty) continue;
+          quick.add(NexusEntry(
+            path: e.path,
+            name: name,
+            isDir: stat.type == FileSystemEntityType.directory,
+            size: stat.type == FileSystemEntityType.directory ? 0 : stat.size,
+            modified: stat.modified,
+            accessed: stat.accessed,
+            category: stat.type == FileSystemEntityType.directory
+                ? FileCategory.folder
+                : categorize(name),
+          ));
+        } on FileSystemException {
+          // Unreadable entry — skip.
+        }
+      }
+    } on FileSystemException {
+      // Directory unreadable.
+    }
+    if (overflow) {
+      final entries = await compute(_listSync, path);
+      _listingCache[path] = entries;
+      return entries;
+    }
+    _listingCache[path] = quick;
+    return quick;
+  }
+
+  static const int _isolateThreshold = 2000;
+
+  /// Applies [filter] to entries in memory without re-listing the disk
+  /// (audit item 29).
+  static List<NexusEntry> filterEntries(
+      List<NexusEntry> entries, String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return entries;
+    return entries
+        .where((e) => e.name.toLowerCase().contains(q))
+        .toList(growable: false);
   }
 
   static List<NexusEntry> _listSync(String path) {
@@ -321,16 +383,40 @@ class FileSystemService {
   }
 
   /// Opens a file with the platform default handler.
+  ///
+  /// Audit item 21: on Android/iOS this routes through the platform
+  /// channel — ACTION_VIEW via FileProvider on Android, the share sheet as
+  /// a fallback on iOS — instead of throwing UnsupportedError.
   Future<void> openWithSystem(String path) async {
+    if (kIsWeb) return;
+    if (Platform.isAndroid) {
+      try {
+        const channel = MethodChannel('nexus/incoming');
+        final ok = await channel.invokeMethod<bool>('openWith', {'path': path});
+        if (ok != true) {
+          // No handler for this MIME type — fall back to the share sheet so
+          // the user can still pick a target app.
+          await channel.invokeMethod('shareFrom', {'path': path});
+        }
+      } on MissingPluginException {
+        // Platform side not ready; nothing else we can do on mobile.
+      }
+      return;
+    }
+    if (Platform.isIOS) {
+      try {
+        await Share.shareXFiles([XFile(path)]);
+      } catch (_) {
+        // User cancelled the share sheet — not an error.
+      }
+      return;
+    }
     if (Platform.isWindows) {
       await Process.run('explorer', [path]);
     } else if (Platform.isMacOS) {
       await Process.run('open', [path]);
     } else if (Platform.isLinux) {
       await Process.run('xdg-open', [path]);
-    } else {
-      // Mobile handled by the UI layer via share sheet.
-      throw UnsupportedError('openWithSystem unsupported on ${Platform.operatingSystem}');
     }
   }
 

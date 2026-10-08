@@ -8,6 +8,16 @@ analyzer:
   errors:
     invalid_use_of_internal_member: error
     unused_import: warning
+    # Audit item 44: using a BuildContext after an await without a mounted
+    # check is a real crash class, not a style nit — treat it as an error.
+    use_build_context_synchronously: error
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 formatter:
   page_width: 100

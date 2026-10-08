@@ -10,7 +10,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/fs_service.dart';
 import '../../../core/theme/nexus_theme.dart';
+import '../../../core/utils/logger.dart';
 import '../../../core/utils/path_utils.dart' as pu;
+import '../../../core/utils/platform_utils.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../domain/models.dart';
 import '../../../state/app_state.dart';
@@ -123,6 +125,7 @@ class _PeekCardState extends ConsumerState<_PeekCard> {
   String? _peekFor;
   String? _head;
   EntryMeta? _meta;
+  bool _exists = false;
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +181,7 @@ class _PeekCardState extends ConsumerState<_PeekCard> {
                 ],
               ),
               const SizedBox(height: 8),
-              if (_isImage(path) && File(path).existsSync())
+              if (_isImage(path) && _exists)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: ConstrainedBox(
@@ -187,6 +190,9 @@ class _PeekCardState extends ConsumerState<_PeekCard> {
                       File(path),
                       width: double.infinity,
                       fit: BoxFit.cover,
+                      // Audit item 33: decode at preview size instead of
+                      // full resolution for a 180px box.
+                      cacheWidth: 360,
                       errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                     ),
                   ),
@@ -219,7 +225,11 @@ class _PeekCardState extends ConsumerState<_PeekCard> {
                 children: [
                   const Icon(Icons.bolt_rounded, size: 12, color: NexusColors.warn),
                   const SizedBox(width: 4),
-                  Text('Alt + hover to peek · Ctrl I to pin inspector',
+                  Text(
+                      // Audit item 41: platform-aware hint wording.
+                      useDesktopHints
+                          ? 'Alt + hover to peek · $modifierKey I to pin inspector'
+                          : 'Long-press an entry for actions · tap to open',
                       style: Theme.of(context).textTheme.labelSmall),
                 ],
               ),
@@ -236,8 +246,17 @@ class _PeekCardState extends ConsumerState<_PeekCard> {
   Future<void> _loadPreview(String path) async {
     String? head;
     EntryMeta? meta;
-    if (!File(path).existsSync()) {
-      if (mounted) setState(() { _head = ''; _meta = null; });
+    // Audit item 33: cache the existsSync result instead of calling it in
+    // build on every rebuild.
+    final exists = File(path).existsSync();
+    if (!exists) {
+      if (mounted) {
+        setState(() {
+          _exists = false;
+          _head = '';
+          _meta = null;
+        });
+      }
       return;
     }
     if (!_isImage(path)) {
@@ -245,7 +264,15 @@ class _PeekCardState extends ConsumerState<_PeekCard> {
     }
     try {
       meta = await ref.read(servicesProvider).metadata.read(path);
-    } catch (_) {}
-    if (mounted) setState(() { _head = head; _meta = meta; });
+    } catch (e) {
+      logWarn('preview metadata read failed for $path', e);
+    }
+    if (mounted) {
+      setState(() {
+        _exists = true;
+        _head = head;
+        _meta = meta;
+      });
+    }
   }
 }

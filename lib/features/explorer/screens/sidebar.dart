@@ -10,10 +10,15 @@ import '../../../core/utils/path_utils.dart' as pu;
 import '../../../core/widgets/widgets.dart';
 import '../../../domain/enums.dart';
 import '../../../domain/models.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../state/app_state.dart';
 
 class Sidebar extends ConsumerWidget {
-  const Sidebar({super.key});
+  const Sidebar({super.key, this.flush = false});
+
+  /// When true the sidebar fills its parent (used inside the phone Drawer)
+  /// instead of pinning its usual 244 px column width.
+  final bool flush;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -21,7 +26,7 @@ class Sidebar extends ConsumerWidget {
     final look = ref.watch(lookProvider);
 
     return Container(
-      width: 244,
+      width: flush ? double.infinity : 244,
       padding: const EdgeInsets.fromLTRB(10, 10, 6, 8),
       decoration: BoxDecoration(
         color: dark ? NexusColors.surfaceDark : NexusColors.surfaceLight,
@@ -57,7 +62,7 @@ class _PlacesSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final places = ref.watch(servicesProvider).fs.places();
     return _Section(
-      title: 'Places',
+      title: AppLocalizations.of(context)!.places,
       children: [
         for (final p in places)
           _Row(
@@ -79,7 +84,7 @@ class _AliasesSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final aliases = ref.watch(aliasesProvider);
     return _Section(
-      title: 'Aliases',
+      title: AppLocalizations.of(context)!.aliases,
       action: IconButton(
         tooltip: 'Alias current folder (type: in palette too)',
         icon: const Icon(Icons.add_rounded, size: 15),
@@ -123,7 +128,7 @@ class _StacksSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final stacks = ref.watch(stacksProvider);
     return _Section(
-      title: 'Folder Stacks',
+      title: AppLocalizations.of(context)!.stacks,
       action: IconButton(
         tooltip: 'Stack current tabs',
         icon: const Icon(Icons.layers_rounded, size: 15),
@@ -188,7 +193,7 @@ class _FreezeSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final frozen = ref.watch(freezesProvider);
     return _Section(
-      title: 'Secure Freeze',
+      title: AppLocalizations.of(context)!.secureFreeze,
       children: [
         if (frozen.isEmpty)
           const _Hint('Right-click any file → Freeze to lock it read-only.'),
@@ -203,7 +208,8 @@ class _FreezeSection extends ConsumerWidget {
               _bump(ref);
               toast(ref, 'Unfrozen ${pu.basename(f.path)}');
             },
-            onTap: () {},
+            // Audit item 40: dead onTap removed — the unfreeze button above
+            // is the single, discoverable action for this row.
           ),
       ],
     );
@@ -222,7 +228,7 @@ class _ClipboardSection extends ConsumerWidget {
     final activeId = svc.clipboard.active?.id;
 
     return _Section(
-      title: 'Clipboard Stack',
+      title: AppLocalizations.of(context)!.clipboardStack,
       action: IconButton(
         tooltip: 'Clear stack',
         icon: const Icon(Icons.clear_all_rounded, size: 15),

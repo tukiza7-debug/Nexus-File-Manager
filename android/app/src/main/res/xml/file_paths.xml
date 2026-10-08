@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Paths exposed to other apps through the Nexus FileProvider
+     (audit item 21: ACTION_VIEW / ACTION_SEND on cached files). -->
+<paths>
+    <cache-path name="incoming" path="incoming/" />
+    <files-path name="shared" path="shared/" />
+</paths>

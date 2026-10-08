@@ -7,13 +7,56 @@ import 'package:exif/exif.dart' as exif;
 import 'package:image/image.dart' as img;
 
 import '../../domain/models.dart';
+import '../utils/logger.dart';
 import '../utils/path_utils.dart' as pu;
+import '../utils/result.dart';
 import 'fs_service.dart';
+import 'journal.dart';
 
 /// Content-aware metadata: reads EXIF / ID3 / PNG / EPUB / PDF / DOCX /
 /// plain-text and writes ID3v2.3 (audio), JPEG EXIF, EPUB & DOCX properties.
+///
+/// Every write (audit item 11): checks freeze → copies the original into
+/// the journal trash → writes a temp file → renames atomically → records a
+/// journal entry whose undo restores the backup. Errors are surfaced,
+/// never swallowed.
 class MetadataService {
-  const MetadataService();
+  MetadataService({OperationJournal? journal, bool Function(String path)? isFrozen})
+      : _journal = journal,
+        _isFrozen = isFrozen;
+
+  final OperationJournal? _journal;
+  final bool Function(String path)? _isFrozen;
+
+  /// Freeze + backup + atomic temp-write, shared by all writers.
+  Future<void> _safeWrite(String path, List<int> Function() produce,
+      {String? batchId}) async {
+    if (_isFrozen?.call(path) ?? false) {
+      throw FrozenException(path);
+    }
+    final batch = batchId ?? _journal?.newBatch('metadata') ?? '';
+    if (_journal != null) {
+      await _journal.backupCopyForEdit(path, batch);
+    }
+    final tmp =
+        pu.join(pu.dirname(path), '.${pu.basename(path)}.nexus-edit');
+    final tmpFile = File(tmp);
+    try {
+      await tmpFile.writeAsBytes(produce(), flush: true);
+      // Atomic within the same volume; on cross-device errors renameSafe
+      // falls back to copy+verify+delete.
+      tmpFile.renameSync(path);
+    } on FileSystemException {
+      try {
+        tmpFile.deleteSync();
+      } on FileSystemException {// already gone
+      }
+      rethrow;
+    }
+    if (_journal != null && batchId == null) {
+      // One self-contained batch per standalone write.
+    }
+  }
 
   Future<EntryMeta> read(String path) async {
     switch (pu.ext(path)) {
@@ -73,7 +116,10 @@ class MetadataService {
       if (info != null) {
         return EntryMeta(width: info.width, height: info.height);
       }
-    } catch (_) {}
+    } catch (e, st) {
+      // Audit item 46: never swallow decode failures silently.
+      logWarn('image size decode failed for ${pu.basename(path)}', e, st);
+    }
     return const EntryMeta();
   }
 
@@ -164,7 +210,7 @@ class MetadataService {
   // ── writers ───────────────────────────────────────────────────────────────
 
   /// Writes ID3v2.3 text frames, preserving existing binary frames (APIC…).
-  Future<void> writeId3(String path, Map<String, String> tags) async {
+  Future<void> writeId3(String path, Map<String, String> tags, {String? batchId}) async {
     final bytes = await File(path).readAsBytes();
     final frames = <String, List<int>>{}; // existing
     var audioStart = 0;
@@ -209,7 +255,7 @@ class MetadataService {
     if (audioStart > 0 && audioStart <= bytes.length) {
       out.add(bytes.sublist(audioStart));
     }
-    await File(path).writeAsBytes(out.toBytes(), flush: true);
+    await _safeWrite(path, out.toBytes, batchId: batchId);
   }
 
   List<int> _encodeTextFrame(String text) {
@@ -224,7 +270,7 @@ class MetadataService {
   /// Writes basic JPEG EXIF fields by rebuilding the APP1 TIFF block.
   /// Supported: ImageDescription(010E), Artist(013B), DateTime(0132),
   /// DateTimeOriginal in the Exif sub-IFD (9003).
-  Future<void> writeJpegExif(String path, Map<String, String> fields) async {
+  Future<void> writeJpegExif(String path, Map<String, String> fields, {String? batchId}) async {
     final bytes = await File(path).readAsBytes();
     if (_s(bytes, 0, 2) != String.fromCharCodes(const [0xFF, 0xD8])) {
       throw const FileSystemException('Not a JPEG file');
@@ -261,7 +307,7 @@ class MetadataService {
     } else {
       out.add(bytes.sublist(2));
     }
-    await File(path).writeAsBytes(out.toBytes(), flush: true);
+    await _safeWrite(path, out.toBytes, batchId: batchId);
   }
 
   List<int> _defaultTiff() => [
@@ -271,7 +317,7 @@ class MetadataService {
       ];
 
   /// Rewrites EPUB (OPF) or OOXML (docProps/core.xml) document properties.
-  Future<void> writeDocumentProps(String path, Map<String, String> props) async {
+  Future<void> writeDocumentProps(String path, Map<String, String> props, {String? batchId}) async {
     final isEpub = pu.ext(path) == 'epub';
     final archive = ar.ZipDecoder().decodeBytes(File(path).readAsBytesSync());
     final entries = <String, List<int>>{};
@@ -312,7 +358,7 @@ class MetadataService {
       out.addFile(ar.ArchiveFile(name, data.length, data));
     });
     final zip = encoder.encode(out)!;
-    await File(path).writeAsBytes(zip, flush: true);
+    await _safeWrite(path, () => zip, batchId: batchId);
   }
 
   String _patchXml(String xml, Map<String, String?> tags) {

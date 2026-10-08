@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as pp;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -22,7 +23,33 @@ class DbService {
     db.execute('PRAGMA foreign_keys = ON;');
     final svc = DbService._(db);
     svc._migrate();
+    svc._migrateColumns();
     return svc;
+  }
+
+  /// Audit item 49: in-memory database so service-layer tests can exercise
+  /// real journal/schedule/pipeline persistence without touching disk.
+  @visibleForTesting
+  static DbService openInMemory() {
+    final svc = DbService._(sqlite3.openInMemory());
+    svc._migrate();
+    svc._migrateColumns();
+    return svc;
+  }
+
+  /// Column-level migrations for databases created before audit v2.
+  void _migrateColumns() {
+    final cols = _db.select('PRAGMA table_info(journal)').map((r) => r['name'] as String).toSet();
+    if (!cols.contains('discarded')) {
+      _db.execute('ALTER TABLE journal ADD COLUMN discarded INTEGER NOT NULL DEFAULT 0');
+    }
+    final vcols = _db.select('PRAGMA table_info(versions)').map((r) => r['name'] as String).toSet();
+    if (!vcols.contains('mtime')) {
+      _db.execute('ALTER TABLE versions ADD COLUMN mtime INTEGER NOT NULL DEFAULT 0');
+    }
+    if (!vcols.contains('hash')) {
+      _db.execute('ALTER TABLE versions ADD COLUMN hash TEXT NOT NULL DEFAULT \'\'');
+    }
   }
 
   void close() => _db.dispose();
@@ -193,8 +220,29 @@ class DbService {
 
   // ── journal (undo + paper trail) ──────────────────────────────────────────
   void addJournal(JournalEntry e) => _db.execute(
-      'INSERT INTO journal(batch_id,op,from_path,to_path,meta,created_at,undone) VALUES(?,?,?,?,?,?,?)',
-      [e.batchId, e.op.name, e.fromPath, e.toPath, e.meta, e.createdAtMs, e.undone ? 1 : 0]);
+      'INSERT INTO journal(batch_id,op,from_path,to_path,meta,created_at,undone,discarded) VALUES(?,?,?,?,?,?,?,?)',
+      [e.batchId, e.op.name, e.fromPath, e.toPath, e.meta, e.createdAtMs, e.undone ? 1 : 0, e.discarded ? 1 : 0]);
+
+  /// Writes a whole batch of entries atomically — a crash mid-batch can no
+  /// longer leave a partial journal record (audit item 31).
+  void addJournalBatch(List<JournalEntry> entries) {
+    _db.execute('BEGIN');
+    try {
+      for (final e in entries) {
+        addJournal(e);
+      }
+      _db.execute('COMMIT');
+    } catch (_) {
+      _db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
+  /// Invalidates every redoable entry — called when a new batch is recorded
+  /// (audit item 10).
+  void discardRedoable() {
+    _db.execute('UPDATE journal SET discarded=1 WHERE undone=1 AND discarded=0');
+  }
 
   List<JournalEntry> journal({String? query, int limit = 2000}) {
     final rows = query == null || query.isEmpty
@@ -227,6 +275,7 @@ class DbService {
         meta: r['meta'] as String?,
         createdAtMs: r['created_at'] as int,
         undone: (r['undone'] as int) == 1,
+        discarded: r['discarded'] == null ? false : (r['discarded'] as int) == 1,
       );
 
   List<BatchInfo> journalBatches({int limit = 300}) {
@@ -404,18 +453,37 @@ class DbService {
 
   // ── versions ──────────────────────────────────────────────────────────────
   void addVersion(VersionSnapshot v) => _db.execute(
-      'INSERT INTO versions(original_path,snapshot_path,size,created_at) VALUES(?,?,?,?)',
-      [v.originalPath, v.snapshotPath, v.size, v.createdAtMs]);
+      'INSERT INTO versions(original_path,snapshot_path,size,created_at,mtime,hash) VALUES(?,?,?,?,?,?)',
+      [v.originalPath, v.snapshotPath, v.size, v.createdAtMs, v.mtimeMs, v.hash]);
+
+  /// True when a snapshot with this size+mtime+hash signature already
+  /// exists (audit item 17: dedupe against DB records, not file mtimes).
+  bool hasVersionSignature(String originalPath, int size, int mtimeMs, String hash) {
+    if (hash.isEmpty || mtimeMs == 0) return false;
+    final rows = _db.select(
+        'SELECT 1 FROM versions WHERE original_path=? AND size=? AND mtime=? AND hash=? LIMIT 1',
+        [originalPath, size, mtimeMs, hash]);
+    return rows.isNotEmpty;
+  }
+
+  List<VersionSnapshot> allVersions() => _db
+      .select('SELECT * FROM versions ORDER BY created_at DESC')
+      .map(_versionFromRow)
+      .toList();
+
+  VersionSnapshot _versionFromRow(Row r) => VersionSnapshot(
+        id: r['id'] as int,
+        originalPath: r['original_path'] as String,
+        snapshotPath: r['snapshot_path'] as String,
+        size: r['size'] as int,
+        createdAtMs: r['created_at'] as int,
+        mtimeMs: (r['mtime'] as int?) ?? 0,
+        hash: (r['hash'] as String?) ?? '',
+      );
 
   List<VersionSnapshot> versionsFor(String originalPath) => _db
       .select('SELECT * FROM versions WHERE original_path=? ORDER BY created_at DESC', [originalPath])
-      .map((r) => VersionSnapshot(
-            id: r['id'] as int,
-            originalPath: r['original_path'] as String,
-            snapshotPath: r['snapshot_path'] as String,
-            size: r['size'] as int,
-            createdAtMs: r['created_at'] as int,
-          ))
+      .map(_versionFromRow)
       .toList();
 
   List<String> versionedPaths() => _db
@@ -554,7 +622,27 @@ class DbService {
       b.writeAll(o.entries.map((e) => '${_write2(e.key.toString())}:${_write2(e.value)}'), ',');
       b.write('}');
     } else {
-      b.write('"$o"');
+      // Model objects (e.g. MacroStep) expose toJson(); without this branch
+      // they used to be serialized as `"Instance of 'MacroStep'"` and could
+      // never round-trip through the database (caught by audit item 49
+      // tests).
+      final j = _tryToJson(o);
+      if (j != null) {
+        _write(j, b);
+      } else {
+        b.write('"$o"');
+      }
+    }
+  }
+
+  /// Returns `o.toJson()` when the object exposes one, else null.
+  static Object? _tryToJson(Object o) {
+    try {
+      final dynamic d = o;
+      final r = d.toJson();
+      return (r is Map || r is List) ? r : null;
+    } on Object {
+      return null;
     }
   }
 
@@ -690,7 +778,9 @@ class _P {
     while (i < s.length && '0123456789+-.eE'.contains(s[i])) {
       i++;
     }
-    final t = s.substring(start);
+    // Audit item 49: the end index was missing — every number followed by
+    // any other JSON content (e.g. `,"at":42}]`) failed to parse.
+    final t = s.substring(start, i);
     return int.tryParse(t) ?? double.parse(t);
   }
 

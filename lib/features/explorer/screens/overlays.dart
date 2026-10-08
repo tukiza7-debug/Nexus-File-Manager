@@ -2,6 +2,7 @@
 /// conflict dialog, command palette (Ctrl K) and the quick session switcher.
 library;
 
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +16,7 @@ import '../../../core/utils/path_utils.dart' as pu;
 import '../../../core/widgets/widgets.dart';
 import '../../../domain/enums.dart';
 import '../../../domain/models.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../state/app_state.dart';
 
 class Overlays {
@@ -104,6 +106,9 @@ class Overlays {
     bool permanent = false,
   }) async {
     if (paths.isEmpty) return;
+    // Captured before any await so the post-operation toast never touches a
+    // context across an async gap (audit item 44).
+    final l10n = AppLocalizations.of(context)!;
     final svc = ref.read(servicesProvider);
     final violations = svc.freeze.violations(paths);
     if (violations.isNotEmpty) {
@@ -131,7 +136,25 @@ class Overlays {
       svc.ops.finish(batch);
       _macro(ref, 'delete', {'paths': paths});
       ref.read(tabsProvider.notifier).clearSelection();
-      toast(ref, 'Deleted $label');
+      // Audit item 39: destructive ops offer an immediate Undo chip so the
+      // user does not have to remember the Paper Trail exists.
+      toastAction(
+        ref,
+        'Deleted $label',
+        actionLabel: l10n.undo,
+        onAction: () async {
+          try {
+            final b = svc.journal.nextUndoBatch();
+            if (b == null) return;
+            await svc.journal.undoBatch(
+                b, onError: (msg) async => toast(ref, msg, error: true));
+            ref.read(journalProvider.notifier).reload();
+            ref.read(tabsProvider.notifier).refresh();
+          } catch (e) {
+            toast(ref, '$e', error: true);
+          }
+        },
+      );
     } catch (e) {
       toast(ref, '$e', error: true);
     }
@@ -191,11 +214,18 @@ class Overlays {
       case 'zip':
         final name = await promptDialog(context,
             title: 'Compress selection', initial: 'archive.zip');
+        if (!context.mounted) return; // audit item 44
         if (name == null) return;
+        final zipPath0 = pu.join(dest, name);
+        if (FileSystemEntity.typeSync(zipPath0) != FileSystemEntityType.notFound) {
+          final ok = await confirmDialog(context,
+              title: 'Overwrite archive?', message: '"$name" already exists. Replace it?');
+          if (!ok) return;
+        }
         final batch = svc.journal.newBatch('compress');
         final zipPath = await svc.ops.compressToZip(
-            paths, pu.join(dest, name),
-            batchId: batch);
+            paths, zipPath0,
+            batchId: batch, overwrite: true);
         svc.ops.finish(batch);
         toast(ref, 'Created ${pu.basename(zipPath)}');
       case 'freeze':
@@ -326,17 +356,25 @@ class Overlays {
         ref.read(diffLeftProvider.notifier).state = entry.path;
         _go(context, '/tools/diff');
       case 'zip':
+        final zipPath0 = pu.join(entry.parent, '${entry.name}.zip');
+        if (FileSystemEntity.typeSync(zipPath0) != FileSystemEntityType.notFound) {
+          final ok = await confirmDialog(context,
+              title: 'Overwrite archive?',
+              message: '"${entry.name}.zip" already exists. Replace it?');
+          if (!ok) return;
+        }
         final batch = svc.journal.newBatch('compress');
         await svc.ops.compressToZip([entry.path],
-            pu.join(entry.parent, '${entry.name}.zip'),
-            batchId: batch);
+            zipPath0,
+            batchId: batch, overwrite: true);
         svc.ops.finish(batch);
         toast(ref, 'Created ${entry.name}.zip');
       case 'unzip':
         final batch = svc.journal.newBatch('extract');
-        await svc.ops.extractZip(entry.path, entry.parent, batchId: batch);
+        final extractedRoot =
+            await svc.ops.extractZip(entry.path, entry.parent, batchId: batch);
         svc.ops.finish(batch);
-        toast(ref, 'Extracted ${entry.name}');
+        toast(ref, 'Extracted ${entry.name} → ${pu.basename(extractedRoot)}');
       case 'teleport':
         ref.read(teleportPendingProvider.notifier).state = [entry.path];
         _go(context, '/tools/teleport');

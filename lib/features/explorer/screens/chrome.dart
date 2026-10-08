@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/fs_service.dart';
 import '../../../core/theme/nexus_theme.dart';
 import '../../../core/utils/format_utils.dart' as f;
+import '../../../core/utils/logger.dart';
 import '../../../core/utils/path_utils.dart' as pu;
 import '../../../core/widgets/widgets.dart';
 import '../../../domain/enums.dart';
@@ -497,7 +498,7 @@ class _FloatingInspectorState extends ConsumerState<FloatingInspector> {
               children: [
                 Icon(icon, size: 15, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 2),
-                Text(label, style: const TextStyle(fontSize: 9.5)),
+                Text(label, style: const TextStyle(fontSize: 11)),
               ],
             ),
           ),
@@ -510,7 +511,9 @@ class _FloatingInspectorState extends ConsumerState<FloatingInspector> {
     try {
       final m = await ref.read(servicesProvider).metadata.read(path);
       if (mounted) setState(() => _meta = m);
-    } catch (_) {
+    } catch (e, st) {
+      // Audit item 46: inspector must not fail silently.
+      logWarn('inspector metadata read failed for $path', e, st);
       _meta = null;
     }
   }

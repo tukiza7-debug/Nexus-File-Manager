@@ -5,15 +5,15 @@ library;
 
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/nexus_database.dart' show Offset2D;
 import '../../../core/theme/nexus_theme.dart';
-import '../../../core/utils/responsive.dart';
 import '../../../core/utils/format_utils.dart' as f;
+import '../../../core/utils/platform_utils.dart';
+import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../domain/enums.dart';
 import '../../../domain/models.dart';
@@ -118,52 +118,125 @@ class _ListView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
-      children: [
-        Container(
-          height: 30,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? NexusColors.borderDark
-                      : NexusColors.borderLight),
+    final look = ref.watch(lookProvider);
+    final tab = ref.watch(tabsProvider.select((s) => s.active));
+    // Audit item 36: phones (<600 dp) drop the SIZE and KIND columns so the
+    // name gets the room it needs; touch mode widens the header row to a
+    // 48 dp hit target.
+    return LayoutBuilder(builder: (context, box) {
+      final phone = box.maxWidth < 600;
+      final touch = look.touchMode;
+      return Column(
+        children: [
+          Container(
+            height: touch ? 48 : 30,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? NexusColors.borderDark
+                        : NexusColors.borderLight),
+              ),
+            ),
+            child: Row(
+              children: [
+                _head(context, ref, SortBy.name, 'NAME',
+                    active: tab.sortBy == SortBy.name,
+                    ascending: tab.sortDir == SortDir.asc),
+                const SizedBox(width: 8),
+                if (!phone) ...[
+                  _head(context, ref, SortBy.size, 'SIZE',
+                      width: 76,
+                      active: tab.sortBy == SortBy.size,
+                      ascending: tab.sortDir == SortDir.asc),
+                  _head(context, ref, SortBy.modified, 'MODIFIED',
+                      width: 132,
+                      active: tab.sortBy == SortBy.modified,
+                      ascending: tab.sortDir == SortDir.asc),
+                  _head(context, ref, SortBy.type, 'KIND',
+                      width: 90,
+                      active: tab.sortBy == SortBy.type,
+                      ascending: tab.sortDir == SortDir.asc),
+                ] else
+                  _head(context, ref, SortBy.modified, 'MODIFIED',
+                      width: 110,
+                      active: tab.sortBy == SortBy.modified,
+                      ascending: tab.sortDir == SortDir.asc),
+              ],
             ),
           ),
-          child: Row(
-            children: [
-              _head(context, 'NAME'),
-              const SizedBox(width: 8),
-              _head(context, 'SIZE', width: 76),
-              _head(context, 'MODIFIED', width: 132),
-              _head(context, 'KIND', width: 90),
-            ],
-          ),
-        ),
-        Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 1, mainAxisExtent: 36),
-            itemCount: entries.length,
-            itemBuilder: (context, i) => FileTile(
-              entry: entries[i],
-              listMode: true,
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 1, mainAxisExtent: 36),
+              itemCount: entries.length,
+              itemBuilder: (context, i) => FileTile(
+                entry: entries[i],
+                listMode: true,
+              ),
             ),
           ),
-        ),
-      ],
-    );
+        ],
+      );
+    });
   }
 
-  Widget _head(BuildContext context, String label, {double width = 0}) {
+  /// Sortable header (audit item 36): tapping sorts by that column through
+  /// the tab's existing setSort; tapping the active column flips direction.
+  /// An arrow marks the active column, and Semantics expose the control.
+  Widget _head(
+    BuildContext context,
+    WidgetRef ref,
+    SortBy column,
+    String label, {
+    double width = 0,
+    bool active = false,
+    bool ascending = true,
+  }) {
+    final style = Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: active
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).textTheme.labelSmall?.color);
+    final content = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: style),
+        if (active) ...[
+          const SizedBox(width: 2),
+          Icon(ascending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+              size: 11, color: Theme.of(context).colorScheme.primary),
+        ],
+      ],
+    );
+
+    void sort() {
+      final tabs = ref.read(tabsProvider.notifier);
+      final t = ref.read(tabsProvider).active;
+      if (t.sortBy == column) {
+        tabs.setSort(column,
+            t.sortDir == SortDir.asc ? SortDir.desc : SortDir.asc);
+      } else {
+        tabs.setSort(column, SortDir.asc);
+      }
+    }
+
+    final btn = Semantics(
+      button: true,
+      enabled: true,
+      label: 'Sort by ${label.toLowerCase()}${active ? (ascending ? ', ascending' : ', descending') : ''}',
+      child: InkWell(
+        onTap: sort,
+        child: width > 0
+            ? SizedBox(width: width, child: Align(
+                alignment: AlignmentDirectional.centerStart, child: content))
+            : Align(alignment: AlignmentDirectional.centerStart, child: content),
+      ),
+    );
     return width > 0
-        ? SizedBox(
-            width: width,
-            child: Text(label, style: Theme.of(context).textTheme.labelSmall))
-        : Expanded(
-            child: Text(label, style: Theme.of(context).textTheme.labelSmall));
+        ? SizedBox(width: width, child: btn)
+        : Expanded(child: btn);
   }
 }
 
@@ -180,6 +253,8 @@ class _SpatialView extends ConsumerStatefulWidget {
 
 class _SpatialViewState extends ConsumerState<_SpatialView> {
   Map<String, Offset2D>? _positions;
+  String? _loadedFolder;
+  final _pendingPositions = <String, Offset2D>{};
 
   @override
   void initState() {
@@ -195,6 +270,11 @@ class _SpatialViewState extends ConsumerState<_SpatialView> {
 
   void _load() {
     final folder = ref.read(tabsProvider).active.path;
+    // Audit item 32: DB reads happen only when the folder actually changes,
+    // not on every rebuild.
+    if (_loadedFolder == folder && _positions != null) return;
+    _loadedFolder = folder;
+    _pendingPositions.clear();
     _positions = ref.read(servicesProvider).db.spatialFor(folder);
   }
 
@@ -210,16 +290,33 @@ class _SpatialViewState extends ConsumerState<_SpatialView> {
       return Stack(
         children: [
           Positioned.fill(
-            child: DragTarget<List<String>>(
+            child: DragTarget<Object>(
+              // Audit item 32: tiles drag NexusEntry objects while spatial
+              // callers may drag path lists — accept both and normalize,
+              // so drops actually land and the toast reflects reality.
               onWillAcceptWithDetails: (_) => true,
               onAcceptWithDetails: (d) async {
+                List<String> paths;
+                final data = d.data;
+                if (data is NexusEntry) {
+                  paths = [data.path];
+                } else if (data is List<String>) {
+                  paths = data;
+                } else {
+                  return;
+                }
                 final dest = folder;
                 final svc = ref.read(servicesProvider);
                 final batch = svc.journal.newBatch('move');
-                await svc.ops.movePaths(d.data, dest, batchId: batch);
-                svc.ops.finish(batch);
-                toast(ref, 'Moved ${d.data.length} item(s) into spatial view');
-                ref.read(tabsProvider.notifier).refresh();
+                try {
+                  await svc.ops.movePaths(paths, dest, batchId: batch);
+                  toast(ref, 'Moved ${paths.length} item(s) into spatial view');
+                  ref.read(tabsProvider.notifier).refresh();
+                } catch (e) {
+                  toast(ref, 'Move failed: $e', error: true);
+                } finally {
+                  svc.ops.finish(batch);
+                }
               },
               builder: (_, candidates, __) => candidates.isNotEmpty
                   ? DecoratedBox(
@@ -257,13 +354,25 @@ class _SpatialViewState extends ConsumerState<_SpatialView> {
         childWhenDragging: Opacity(opacity: 0.35, child: _SpatialCard(entry: e)),
         child: GestureDetector(
           onPanUpdate: (d) {
-            final folder = ref.read(tabsProvider).active.path;
+            // Audit item 32: drag in memory; persist only on pan end so a
+            // single drag writes ONE row instead of one per frame.
             final next = Offset(
               (pos.dx + d.delta.dx).clamp(0.0, (box.maxWidth - 96).clamp(0.0, double.infinity)),
               (pos.dy + d.delta.dy).clamp(0.0, (box.maxHeight - 110).clamp(0.0, double.infinity)),
             );
-            ref.read(servicesProvider).db.putSpatial(folder, e.name, next.dx, next.dy);
-            setState(() => _positions?[e.name] = Offset2D(next.dx, next.dy));
+            setState(() {
+              _positions?[e.name] = Offset2D(next.dx, next.dy);
+              _pendingPositions[e.name] = Offset2D(next.dx, next.dy);
+            });
+          },
+          onPanEnd: (_) {
+            if (_pendingPositions.isEmpty) return;
+            final folder = ref.read(tabsProvider).active.path;
+            final db = ref.read(servicesProvider).db;
+            for (final entry in _pendingPositions.entries) {
+              db.putSpatial(folder, entry.key, entry.value.x, entry.value.y);
+            }
+            _pendingPositions.clear();
           },
           child: _SpatialCard(entry: e),
         ),
@@ -457,63 +566,103 @@ class _FileTileState extends ConsumerState<FileTile> {
     final entry = widget.entry;
     final selected = ref.watch(
         tabsProvider.select((s) => s.active.selection.contains(entry.path)));
-    final ui = ref.watch(uiProvider);
-    final look = ref.watch(lookProvider);
+    final colorblindSafe = ref.watch(lookProvider.select((l) => l.colorblindSafe));
 
-    final tunnelActive = ui.focusTunnelPath != null;
-    final dimmed = tunnelActive && ui.focusTunnelPath != entry.path;
-
-    final tile = FileTileBody(
-      entry: entry,
-      selected: selected,
-      listMode: widget.listMode,
-      hover: _hover,
+    final tile = RepaintBoundary(
+      child: FileTileBody(
+        entry: entry,
+        selected: selected,
+        listMode: widget.listMode,
+        hover: _hover,
+      ),
     );
 
-    return GestureDetector(
-      onTap: () => _select(selected, entry),
-      onDoubleTap: () => _open(entry),
-      onSecondaryTapUp: (d) =>
-          Overlays.showEntryMenu(context, ref, entry, d.globalPosition),
-      onLongPressStart: (d) =>
-          Overlays.showEntryMenu(context, ref, entry, d.globalPosition),
-      child: Draggable<NexusEntry>(
-        data: entry,
-        onDragStarted: () {
-          ref.read(chrome.dragActiveProvider.notifier).state = true;
-          final sel = ref.read(tabsProvider).active.selection;
-          ref.read(chrome.dragPathsProvider.notifier).state =
-              sel.contains(entry.path) ? sel.toList() : [entry.path];
+    return Semantics(
+      // Audit item 38: expose selection state and identity to screen
+      // readers instead of an unlabeled tappable.
+      selected: selected,
+      button: true,
+      label: entry.name,
+      value: entry.isDir ? 'Folder' : entry.sizeLabel,
+      child: GestureDetector(
+        // Audit item 26: single tap opens on touch devices; selection moves
+        // to long-press. Desktop keeps tap-select + double-click-to-open.
+        onTap: () => isTouchDevice ? _open(entry) : _select(selected, entry),
+        onDoubleTap: isTouchDevice ? null : () => _open(entry),
+        onSecondaryTapUp: (d) =>
+            Overlays.showEntryMenu(context, ref, entry, d.globalPosition),
+        onLongPressStart: (d) {
+          // Touch: long-press enters selection mode; desktop shows the menu.
+          if (isTouchDevice) {
+            final c = ref.read(tabsProvider.notifier);
+            c.selectOnly(entry.path);
+          } else {
+            Overlays.showEntryMenu(context, ref, entry, d.globalPosition);
+          }
         },
-        onDragEnd: (_) =>
-            ref.read(chrome.dragActiveProvider.notifier).state = false,
-        feedback: _Feedback(entry: entry),
-        childWhenDragging: Opacity(opacity: 0.35, child: tile),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _hover = true),
-          onExit: (_) {
-            setState(() => _hover = false);
-            ref.read(uiProvider.notifier).setPeek(null);
-          },
-          onHover: (_) {
-            if (HardwareKeyboard.instance.isAltPressed) {
-              ref.read(uiProvider.notifier).setPeek(entry.path);
-            }
-          },
-          child: _SelectionBorder(
-            selected: selected,
-            colorblindSafe: look.colorblindSafe,
-            category: entry.category,
-            child: dimmed
-                ? ColorFiltered(
-                    colorFilter: const ColorFilter.mode(
-                        Colors.black54, BlendMode.saturation),
-                    child: Opacity(opacity: 0.35, child: tile),
-                  )
-                : tile,
-          ),
-        ),
+        child: _buildDrag(entry, tile, colorblindSafe),
+      ),
+    );
+  }
+
+  Widget _buildDrag(NexusEntry entry, Widget tile, bool colorblindSafe) {
+    void onDragStarted() {
+      ref.read(chrome.dragActiveProvider.notifier).state = true;
+      final sel = ref.read(tabsProvider).active.selection;
+      ref.read(chrome.dragPathsProvider.notifier).state =
+          sel.contains(entry.path) ? sel.toList() : [entry.path];
+    }
+
+    void onDragEnd(_) =>
+        ref.read(chrome.dragActiveProvider.notifier).state = false;
+    // Audit item 27: LongPressDraggable on touch so drags do not fight the
+    // scroll gesture; plain Draggable stays on desktop.
+    final Widget drag = isTouchDevice
+        ? LongPressDraggable<NexusEntry>(
+            data: entry,
+            onDragStarted: onDragStarted,
+            onDragEnd: onDragEnd,
+            feedback: _Feedback(entry: entry),
+            childWhenDragging: Opacity(opacity: 0.35, child: tile),
+            child: _tileInner(entry, tile, colorblindSafe),
+          )
+        : Draggable<NexusEntry>(
+            data: entry,
+            onDragStarted: onDragStarted,
+            onDragEnd: onDragEnd,
+            feedback: _Feedback(entry: entry),
+            childWhenDragging: Opacity(opacity: 0.35, child: tile),
+            child: _tileInner(entry, tile, colorblindSafe),
+          );
+    return drag;
+  }
+
+  Widget _tileInner(NexusEntry entry, Widget tile, bool colorblindSafe) {
+    final tunnelPath = ref.watch(uiProvider.select((u) => u.focusTunnelPath));
+    final dimmed = tunnelPath != null && tunnelPath != entry.path;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) {
+        setState(() => _hover = false);
+        ref.read(uiProvider.notifier).setPeek(null);
+      },
+      onHover: (_) {
+        if (HardwareKeyboard.instance.isAltPressed) {
+          ref.read(uiProvider.notifier).setPeek(entry.path);
+        }
+      },
+      child: _SelectionBorder(
+        selected: ref.read(tabsProvider).active.selection.contains(entry.path),
+        colorblindSafe: colorblindSafe,
+        category: entry.category,
+        child: dimmed
+            ? ColorFiltered(
+                colorFilter: const ColorFilter.mode(
+                    Colors.black54, BlendMode.saturation),
+                child: Opacity(opacity: 0.35, child: tile),
+              )
+            : tile,
       ),
     );
   }
@@ -530,11 +679,17 @@ class _FileTileState extends ConsumerState<FileTile> {
     }
   }
 
-  void _open(NexusEntry entry) {
+  Future<void> _open(NexusEntry entry) async {
     if (entry.isDir) {
       ref.read(tabsProvider.notifier).navigate(entry.path);
-    } else {
-      ref.read(servicesProvider).fs.openWithSystem(entry.path);
+      return;
+    }
+    // Audit item 21: open failures (no handler, provider missing) surface
+    // as a toast instead of an unhandled async error.
+    try {
+      await ref.read(servicesProvider).fs.openWithSystem(entry.path);
+    } catch (e) {
+      toast(ref, 'Could not open ${entry.name}: $e', error: true);
     }
   }
 }
@@ -615,6 +770,14 @@ class FileTileBody extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Audit item 38: non-colour selection cue — a check badge so
+          // selection does not rely on the accent ring alone.
+          if (selected)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Icon(Icons.check_circle_rounded,
+                  size: 15, color: Theme.of(context).colorScheme.primary),
+            ),
           FileGlyph(category: entry.category, size: m.glyphGrid),
           SizedBox(height: m.isPhone ? 4 : 7),
           Text(
@@ -654,6 +817,13 @@ class FileTileBody extends ConsumerWidget {
       ),
       child: Row(
         children: [
+          // Audit item 38: non-colour selection cue in list rows too.
+          if (selected)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Icon(Icons.check_circle_rounded,
+                  size: 15, color: Theme.of(context).colorScheme.primary),
+            ),
           FileGlyph(category: entry.category, size: m.glyphList),
           const SizedBox(width: 10),
           Expanded(
@@ -716,7 +886,3 @@ class _Feedback extends ConsumerWidget {
     );
   }
 }
-
-// GridView delegate alias to keep the import list short.
-typedef SlGridDelegateWithMaxCrossAxisExtent = SliverGridDelegateWithMaxCrossAxisExtent;
-typedef SlGridDelegateWithFixedCrossAxisCount = SliverGridDelegateWithFixedCrossAxisCount;

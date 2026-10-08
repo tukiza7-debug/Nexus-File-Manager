@@ -44,7 +44,13 @@ class PipelineService {
       out.add(switch (step.kind) {
         'renamePattern' => _apply(step.args['pattern'] ?? '{name}', name, stem, ext, i + 1),
         'case' => _applyCase(step.args['mode'] ?? 'lower', name, ext),
-        'ext' => ext.isEmpty ? '$name.${step.args['ext'] ?? ''}' : '$stem.${step.args['ext'] ?? ''}',
+        'ext' => () {
+          // Audit item 19: an empty target extension must not produce a
+          // trailing dot.
+          final target = (step.args['ext'] ?? '') as String;
+          if (target.isEmpty) return name;
+          return ext.isEmpty ? '$name.$target' : '$stem.$target';
+        }(),
         _ => name,
       });
     }
@@ -85,7 +91,10 @@ class PipelineService {
         parts.skip(1).map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}').join();
   }
 
-  /// Executes the pipeline against concrete paths.
+  /// Executes the pipeline against concrete paths. Dry-run parity
+  /// (audit item 19): names chain through steps exactly like plan(), and
+  /// the path list stays aligned with the entry list (missing paths are
+  /// skipped in BOTH).
   Future<void> run(NexusPipeline p, List<String> paths, {required String batchId}) async {
     final entries = <NexusEntry>[];
     for (final path in paths) {
@@ -97,13 +106,15 @@ class PipelineService {
         name: pu.basename(path),
         isDir: stat == FileSystemEntityType.directory,
         size: stat == FileSystemEntityType.file ? File(path).lengthSync() : 0,
-        modified: File(path).lastModifiedSync(),
+        modified: stat == FileSystemEntityType.file ? File(path).lastModifiedSync() : DateTime.now(),
         category: stat == FileSystemEntityType.directory
             ? FileCategory.folder
             : FileSystemService.categorize(pu.basename(path)),
       ));
     }
-    var currentPaths = paths.toList();
+    // Aligned: currentPaths[i] ↔ entries[i] for the whole run.
+    var currentPaths = [for (final e in entries) e.path];
+    var currentNames = [for (final e in entries) e.name];
 
     for (final step in p.steps) {
       if (!step.enabled) continue;
@@ -111,21 +122,18 @@ class PipelineService {
         case 'renamePattern':
         case 'case':
         case 'ext':
-          final plannedNames = _transformNames(step, [for (final e in entries) e.name]);
+          final plannedNames = _transformNames(step, currentNames);
           final renamed = <String>[];
           for (var i = 0; i < currentPaths.length; i++) {
             final dir = pu.dirname(currentPaths[i]);
             final newName = plannedNames[i];
             final newPath = pu.join(dir, newName);
             if (newPath != currentPaths[i]) {
+              // Validate the produced name before touching the disk.
+              pu.checkName(newName);
               if (FileSystemEntity.typeSync(newPath) != FileSystemEntityType.notFound) {
                 // Never clobber: suffix a counter.
-                var k = 2;
-                var candidate = pu.withCounter(newPath, k);
-                while (FileSystemEntity.typeSync(candidate) != FileSystemEntityType.notFound) {
-                  k++;
-                  candidate = pu.withCounter(newPath, k);
-                }
+                final candidate = FileOpsService.uniqueCopyName(newPath);
                 await _ops.rename(currentPaths[i], candidate, batchId: batchId);
                 renamed.add(candidate);
               } else {
@@ -137,16 +145,18 @@ class PipelineService {
             }
           }
           currentPaths = renamed;
+          currentNames = [for (final p2 in currentPaths) pu.basename(p2)];
         case 'move':
           final dest = step.args['dest'] ?? '';
-          if (dest.isNotEmpty) {
+          if (dest.isNotEmpty && currentPaths.isNotEmpty) {
             Directory(dest).createSync(recursive: true);
             await _ops.movePaths(currentPaths, dest, batchId: batchId);
             currentPaths = [for (final src in currentPaths) pu.join(dest, pu.basename(src))];
+            currentNames = [for (final p2 in currentPaths) pu.basename(p2)];
           }
         case 'copy':
           final dest = step.args['dest'] ?? '';
-          if (dest.isNotEmpty) {
+          if (dest.isNotEmpty && currentPaths.isNotEmpty) {
             Directory(dest).createSync(recursive: true);
             await _ops.copyPaths(currentPaths, dest, batchId: batchId);
           }
@@ -158,7 +168,11 @@ class PipelineService {
           final uniqueZip = FileOpsService.uniqueCopyName(pu.join(dest, zipName));
           await _ops.compressToZip(currentPaths, uniqueZip, batchId: batchId);
         case 'trash':
-          await _ops.deletePaths(currentPaths, batchId: batchId);
+          if (currentPaths.isNotEmpty) {
+            await _ops.deletePaths(currentPaths, batchId: batchId);
+            currentPaths = const [];
+            currentNames = const [];
+          }
       }
     }
   }

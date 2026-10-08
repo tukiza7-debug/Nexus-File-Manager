@@ -405,12 +405,20 @@ class VersionSnapshot {
     required this.snapshotPath,
     required this.size,
     required this.createdAtMs,
+    this.mtimeMs = 0,
+    this.hash = '',
   });
   final int? id;
   final String originalPath;
   final String snapshotPath;
   final int size;
   final int createdAtMs;
+
+  /// Source mtime at snapshot time — used for dedupe (audit item 17).
+  final int mtimeMs;
+
+  /// Content hash at snapshot time — used for dedupe (audit item 17).
+  final String hash;
 }
 
 class MirrorPair {

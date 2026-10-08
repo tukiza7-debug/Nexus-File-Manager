@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../domain/models.dart';
 import '../db/nexus_database.dart';
 
@@ -9,31 +11,31 @@ class MacroService {
 
   final DbService _db;
 
-  bool _recording = false;
   final _steps = <MacroStep>[];
   int _startedAt = 0;
 
-  final _stateCtrl = StreamControllerMacro();
-  Stream<bool> get recordingStream => _stateCtrl.stream;
-  bool get recording => _recording;
+  /// Behavior-subject-style signal: every new listener immediately receives
+  /// the current value, then all changes. Audit item 18 — the recording FAB
+  /// never appeared because the old stub terminated after one value.
+  final ValueSignalBool _signal = ValueSignalBool(false);
+  Stream<bool> get recordingStream => _signal.stream;
+  bool get recording => _signal.value;
 
   List<MacroStep> get liveSteps => List.unmodifiable(_steps);
 
   void startRecording() {
     _steps.clear();
-    _recording = true;
     _startedAt = DateTime.now().millisecondsSinceEpoch;
-    _stateCtrl.add(true);
+    _signal.add(true);
   }
 
   void record(String action, Map<String, dynamic> args) {
-    if (!_recording) return;
+    if (!_signal.value) return;
     _steps.add(MacroStep(action: action, args: args, atMs: DateTime.now().millisecondsSinceEpoch - _startedAt));
   }
 
   List<MacroStep> stopRecording() {
-    _recording = false;
-    _stateCtrl.add(false);
+    _signal.add(false);
     return List.of(_steps);
   }
 
@@ -57,28 +59,28 @@ class MacroService {
     return Duration(milliseconds: clamped);
   }
 
-  void dispose() => _stateCtrl.close();
+  void dispose() => _signal.close();
 }
 
-class StreamControllerMacro {
-  final _c = <void Function(bool)>[];
-  bool _last = false;
+/// Behavior-subject-style boolean stream: new listeners immediately receive
+/// the current value, then every subsequent change.
+class ValueSignalBool {
+  ValueSignalBool(this._initial);
+
+  bool _value;
+  final _ctrl = StreamController<bool>.broadcast();
 
   Stream<bool> get stream async* {
-    yield _last;
-    await for (final _ in const Stream<void>.empty()) {
-      yield _last;
-    }
+    yield _value;
+    yield* _ctrl.stream;
   }
+
+  bool get value => _value;
 
   void add(bool v) {
-    _last = v;
-    for (final f in _c) {
-      f(v);
-    }
+    _value = v;
+    _ctrl.add(v);
   }
 
-  void listen(void Function(bool) f) => _c.add(f);
-
-  void close() => _c.clear();
+  void close() => _ctrl.close();
 }

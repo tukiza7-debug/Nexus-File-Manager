@@ -54,10 +54,14 @@ class RuleEngine {
       };
 
   bool _glob(String s, String pattern) {
-    final re = RegExp('^${RegExp.escape(pattern)
+    var body = RegExp.escape(pattern)
         .replaceAll(r'\*', '[^/]*')
         .replaceAll(r'\?', '.')
-        .replaceAll(r'\[!', '[^')}\$', caseSensitive: false);
+        .replaceAll(r'\[!', '[^');
+    // Un-escape balanced character classes so [abc] keeps its meaning
+    // (RegExp.escape would otherwise turn it into literal brackets).
+    body = body.replaceAllMapped(RegExp(r'\[([^\]\[]*)\]'), (m) => '[${m.group(1)}]');
+    final re = RegExp('^' + body + r'$', caseSensitive: false);
     return re.hasMatch(s);
   }
 
@@ -80,11 +84,13 @@ class RuleEngine {
   /// rename → new name; move/trash → flagged.
   List<RulePlanEntry> plan(NexusRule rule, List<NexusEntry> entries) {
     final out = <RulePlanEntry>[];
+    var matchedCount = 0;
     for (final e in entries) {
       if (!matches(rule, e)) continue;
+      matchedCount++; // {n} counts matched entries, not actions (item 19)
       for (final a in rule.actions) {
         out.add(switch (a.kind) {
-          'rename' => RulePlanEntry(e, 'rename', _applyPattern(a.arg, e, out.length + 1)),
+          'rename' => RulePlanEntry(e, 'rename', _applyPattern(a.arg, e, matchedCount)),
           'move' => RulePlanEntry(e, 'move', a.arg),
           'trash' => RulePlanEntry(e, 'trash', ''),
           'freeze' => RulePlanEntry(e, 'freeze', ''),
@@ -92,7 +98,26 @@ class RuleEngine {
         });
       }
     }
+    // Validate rename results and keep extensions consistent with pipelines
+    // (audit item 19). Invalid names surface as 'invalid' plan entries.
+    for (var i = 0; i < out.length; i++) {
+      final p = out[i];
+      if (p.action != 'rename') continue;
+      final withExt = _keepExtension(p.arg, p.entry.name);
+      final error = pu.validateName(withExt);
+      out[i] = RulePlanEntry(p.entry, error != null ? 'invalid' : 'rename',
+          error != null ? p.arg : withExt);
+    }
     return out;
+  }
+
+  /// Keeps the original extension when the pattern does not already end
+  /// with one ({ext} lets users override it).
+  static String _keepExtension(String patternResult, String originalName) {
+    if (pu.ext(patternResult).isNotEmpty) return patternResult;
+    final origExt = pu.ext(originalName);
+    if (origExt.isEmpty) return patternResult;
+    return '$patternResult.$origExt';
   }
 
   String _applyPattern(String pattern, NexusEntry e, int n) {

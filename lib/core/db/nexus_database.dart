@@ -32,6 +32,13 @@ class DbService {
     if (!cols.contains('discarded')) {
       _db.execute('ALTER TABLE journal ADD COLUMN discarded INTEGER NOT NULL DEFAULT 0');
     }
+    final vcols = _db.select('PRAGMA table_info(versions)').map((r) => r['name'] as String).toSet();
+    if (!vcols.contains('mtime')) {
+      _db.execute("ALTER TABLE versions ADD COLUMN mtime INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!vcols.contains('hash')) {
+      _db.execute("ALTER TABLE versions ADD COLUMN hash TEXT NOT NULL DEFAULT ''");
+    }
   }
 
   void close() => _db.dispose();
@@ -435,18 +442,37 @@ class DbService {
 
   // ── versions ──────────────────────────────────────────────────────────────
   void addVersion(VersionSnapshot v) => _db.execute(
-      'INSERT INTO versions(original_path,snapshot_path,size,created_at) VALUES(?,?,?,?)',
-      [v.originalPath, v.snapshotPath, v.size, v.createdAtMs]);
+      'INSERT INTO versions(original_path,snapshot_path,size,created_at,mtime,hash) VALUES(?,?,?,?,?,?)',
+      [v.originalPath, v.snapshotPath, v.size, v.createdAtMs, v.mtimeMs, v.hash]);
+
+  /// True when a snapshot with this size+mtime+hash signature already
+  /// exists (audit item 17: dedupe against DB records, not file mtimes).
+  bool hasVersionSignature(String originalPath, int size, int mtimeMs, String hash) {
+    if (hash.isEmpty || mtimeMs == 0) return false;
+    final rows = _db.select(
+        'SELECT 1 FROM versions WHERE original_path=? AND size=? AND mtime=? AND hash=? LIMIT 1',
+        [originalPath, size, mtimeMs, hash]);
+    return rows.isNotEmpty;
+  }
+
+  List<VersionSnapshot> allVersions() => _db
+      .select('SELECT * FROM versions ORDER BY created_at DESC')
+      .map(_versionFromRow)
+      .toList();
+
+  VersionSnapshot _versionFromRow(Row r) => VersionSnapshot(
+        id: r['id'] as int,
+        originalPath: r['original_path'] as String,
+        snapshotPath: r['snapshot_path'] as String,
+        size: r['size'] as int,
+        createdAtMs: r['created_at'] as int,
+        mtimeMs: (r['mtime'] as int?) ?? 0,
+        hash: (r['hash'] as String?) ?? '',
+      );
 
   List<VersionSnapshot> versionsFor(String originalPath) => _db
       .select('SELECT * FROM versions WHERE original_path=? ORDER BY created_at DESC', [originalPath])
-      .map((r) => VersionSnapshot(
-            id: r['id'] as int,
-            originalPath: r['original_path'] as String,
-            snapshotPath: r['snapshot_path'] as String,
-            size: r['size'] as int,
-            createdAtMs: r['created_at'] as int,
-          ))
+      .map(_versionFromRow)
       .toList();
 
   List<String> versionedPaths() => _db

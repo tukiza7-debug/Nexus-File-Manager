@@ -443,9 +443,10 @@ class _TitleBarState extends ConsumerState<_TitleBar> {
     final ghostOn = ref.watch(uiProvider.select((s) => s.ghostOpacity)) < 1.0;
     final zen = ref.watch(uiProvider.select((s) => s.zenMode));
 
+    final mobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
     final bar = Container(
-      height: 46,
-      padding: const EdgeInsets.only(left: 12),
+      height: mobile ? 40.0 : 46.0,
+      padding: EdgeInsets.only(left: mobile ? 8.0 : 12.0),
       decoration: BoxDecoration(
         gradient: widget.decor.titleBarGradient,
         border: Border(

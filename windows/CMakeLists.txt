@@ -2,6 +2,11 @@
 cmake_minimum_required(VERSION 3.14)
 project(nexus_file_manager LANGUAGES CXX)
 
+# Newer MSVC toolsets (VS 18 / MSVC 14.51+) hard-error on the deprecated
+# <experimental/coroutine> header used by permission_handler_windows.
+# This define suppresses that error; harmless on older toolsets.
+add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
 set(BINARY_NAME "NexusFileManager")

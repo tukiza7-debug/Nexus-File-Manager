@@ -601,6 +601,7 @@ class FileTileBody extends ConsumerWidget {
   }
 
   Widget _gridBody(BuildContext context, bool touchMode) {
+    final m = NexusMetrics.of(context, touchMode: touchMode);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final hoverBg = dark ? NexusColors.surface2Dark : NexusColors.surface2Light;
     return AnimatedContainer(
@@ -617,23 +618,15 @@ class FileTileBody extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          FileGlyph(
-            category: entry.category,
-            size: touchMode
-                ? ((!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 34 : 40)
-                : ((!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 28 : 34),
-          ),
-          SizedBox(
-              height: (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 4 : 7),
+          FileGlyph(category: entry.category, size: m.glyphGrid),
+          SizedBox(height: m.isPhone ? 4 : 7),
           Text(
             entry.name,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: touchMode
-                  ? ((!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 12.0 : 13.0)
-                  : ((!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 11.0 : 12.0),
+              fontSize: m.tileFontSize,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
               color: dark ? NexusColors.textDark : NexusColors.textLight,
             ),
@@ -649,14 +642,12 @@ class FileTileBody extends ConsumerWidget {
   }
 
   Widget _listBody(BuildContext context, bool touchMode) {
+    final m = NexusMetrics.of(context, touchMode: touchMode);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final hoverBg = dark ? NexusColors.surface2Dark : NexusColors.surface2Light;
     return Container(
-      height: touchMode
-          ? ((!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 44.0 : 52.0)
-          : ((!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 32.0 : 36.0),
-      padding: EdgeInsets.symmetric(
-          horizontal: (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 8.0 : 12.0),
+      height: m.listRowHeight,
+      padding: EdgeInsets.symmetric(horizontal: m.isDesktopLayout ? 12.0 : 8.0),
       decoration: BoxDecoration(
         color: selected
             ? Theme.of(context).colorScheme.primary.withValues(alpha:  0.10)
@@ -666,7 +657,7 @@ class FileTileBody extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          FileGlyph(category: entry.category, size: touchMode ? 26 : 18),
+          FileGlyph(category: entry.category, size: m.glyphList),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

@@ -3,6 +3,7 @@
 /// action zone and Alt-hover peek.
 library;
 
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -49,7 +50,9 @@ class FileViews extends ConsumerWidget {
             : Icons.search_off_rounded,
         title: ui.filter.isEmpty ? 'Nothing here yet' : 'No matches',
         message: ui.filter.isEmpty
-            ? 'This folder is empty. Right-click to create files, or drop something anywhere on this view.'
+            ? (Platform.isAndroid || Platform.isIOS
+                ? 'This folder is empty. Long-press or tap Create to add files.'
+                : 'This folder is empty. Right-click to create files, or drop something anywhere on this view.')
             : 'No item matches “${ui.filter}”. Try another search or clear the filter.',
         action: ui.filter.isEmpty
             ? FilledButton.tonal(

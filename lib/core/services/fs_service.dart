@@ -198,14 +198,45 @@ class FileSystemService {
     }
   }
 
+  /// Best starting directory for the current platform.
+  ///
+  /// On Android we open the shared primary volume (`/storage/emulated/0`)
+  /// so the explorer behaves like a real file manager once
+  /// MANAGE_EXTERNAL_STORAGE (or legacy storage) is granted.
+  /// Falling back to `$HOME` or `/` left users on an empty path
+  /// (mobile screenshot audit, Oct 2026).
   String homeDir() {
-    final env = Platform.environment;
-    if (Platform.isWindows) return env['USERPROFILE'] ?? 'C:\\';
-    return env['HOME'] ?? '/';
+    if (Platform.isWindows) {
+      return Platform.environment['USERPROFILE'] ?? 'C:\\';
+    }
+    if (Platform.isAndroid) {
+      const candidates = <String>[
+        '/storage/emulated/0',
+        '/sdcard',
+        '/storage/sdcard0',
+      ];
+      for (final p in candidates) {
+        try {
+          if (Directory(p).existsSync()) return p;
+        } on FileSystemException {
+          // keep looking
+        }
+      }
+      final ext = Platform.environment['EXTERNAL_STORAGE'];
+      if (ext != null && ext.isNotEmpty) {
+        try {
+          if (Directory(ext).existsSync()) return ext;
+        } on FileSystemException {/* ignore */}
+      }
+    }
+    return Platform.environment['HOME'] ?? '/';
   }
 
-  /// Sensible starting places per platform.
+  /// Sensible starting places per platform (sidebar "Places").
   List<PlaceEntry> places() {
+    if (Platform.isAndroid) return _androidPlaces();
+    if (Platform.isIOS) return _iosPlaces();
+
     final home = homeDir();
     final sep = Platform.isWindows ? r'\' : '/';
     PlaceEntry? maybe(String label, String sub, FileCategory c) {
@@ -226,10 +257,67 @@ class FileSystemService {
     add('Pictures', 'Pictures', FileCategory.image);
     add('Music', 'Music', FileCategory.audio);
     add('Videos', 'Videos', FileCategory.video);
-    if (Platform.isAndroid || Platform.isIOS) {
-      out.add(PlaceEntry('App files', home, FileCategory.folder));
-    }
     return out;
+  }
+
+  /// Android Places: Internal Storage + common public folders + secondary
+  /// volumes under `/storage` (SD cards, USB OTG).
+  List<PlaceEntry> _androidPlaces() {
+    final primary = homeDir();
+    final out = <PlaceEntry>[
+      PlaceEntry('Internal Storage', primary, FileCategory.folder),
+    ];
+
+    void addSub(String label, String sub, FileCategory c) {
+      final p = '$primary/$sub';
+      try {
+        if (Directory(p).existsSync()) {
+          out.add(PlaceEntry(label, p, c));
+        }
+      } on FileSystemException {/* skip */}
+    }
+
+    addSub('Downloads', 'Download', FileCategory.archive);
+    addSub('Downloads', 'Downloads', FileCategory.archive);
+    addSub('Documents', 'Documents', FileCategory.document);
+    addSub('Pictures', 'Pictures', FileCategory.image);
+    addSub('DCIM', 'DCIM', FileCategory.image);
+    addSub('Music', 'Music', FileCategory.audio);
+    addSub('Movies', 'Movies', FileCategory.video);
+    addSub('Videos', 'Videos', FileCategory.video);
+
+    try {
+      final storageRoot = Directory('/storage');
+      if (storageRoot.existsSync()) {
+        for (final e in storageRoot.listSync(followLinks: false)) {
+          if (e is! Directory) continue;
+          final name = pu.basename(e.path);
+          if (name == 'emulated' || name == 'self' || name.startsWith('.')) {
+            continue;
+          }
+          try {
+            if (e.path == primary) continue;
+            if (Directory(e.path).existsSync()) {
+              out.add(PlaceEntry(
+                name.length > 12 ? 'SD Card' : 'SD · $name',
+                e.path,
+                FileCategory.folder,
+              ));
+            }
+          } on FileSystemException {/* skip unreadable */}
+        }
+      }
+    } on FileSystemException {/* no /storage */}
+
+    return out;
+  }
+
+  List<PlaceEntry> _iosPlaces() {
+    final home = homeDir();
+    return [
+      PlaceEntry('Files', home, FileCategory.folder),
+      PlaceEntry('App files', home, FileCategory.folder),
+    ];
   }
 
   /// Opens a file with the platform default handler.

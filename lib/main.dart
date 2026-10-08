@@ -16,6 +16,16 @@ import 'state/app_state.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Surface unexpected framework errors instead of a blank native window.
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('FlutterError: ${details.exceptionAsString()}');
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('Uncaught: $error\n$stack');
+    return true;
+  };
   LicenseRegistry.addLicense(() async* {
     // Full Inter OFL license text (audit item 48) — the bundled font is
     // licensed under the SIL Open Font License 1.1.

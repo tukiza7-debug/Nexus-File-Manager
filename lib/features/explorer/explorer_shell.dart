@@ -216,8 +216,10 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
     final decor = LegacyThemes.decorFor(look.brand,
         Theme.of(context).brightness);
     // Audit item 42: phones get the sidebar as a Drawer instead of a
-    // permanently-pinned column.
-    final phone = MediaQuery.sizeOf(context).width < 600;
+    // permanently-pinned column. Detection reuses the shared NexusMetrics
+    // breakpoints (shortestSide based) instead of a raw width check.
+    final m = NexusMetrics.of(context, touchMode: look.touchMode);
+    final phone = m.isPhone;
     final showGhost = !isTouchDevice; // ghost window opacity is desktop-only
 
     final shortcuts = <ShortcutActivator, VoidCallback>{

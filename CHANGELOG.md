@@ -4,7 +4,7 @@ All notable changes to Nexus File Manager are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/) and the
 project adheres to semantic versioning for the pubspec `MAJOR.MINOR.PATCH` part.
 
-## [1.1.0+4] — 2026-10-08
+## [1.1.0+26] — 2026-10-08
 
 Fifty-item engineering audit across data safety, automation, Android
 integration, Teleport, interaction speed, accessibility and code hygiene.

@@ -1,10 +1,16 @@
-name: Build APK (All Types)
+name: Build APK (All Types) + Auto Versioning
 
 on:
   push:
+    branches: [ main ]
     tags:
       - 'v*'
-  workflow_dispatch:   # Allow manual trigger from Actions tab
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Optional version name (e.g. 1.0.1). Leave empty to auto-detect.'
+        required: false
+        default: ''
 
 jobs:
   build-apk:
@@ -14,6 +20,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -27,52 +35,71 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Flutter version
-        run: flutter --version
+      - name: Determine Version
+        id: version
+        run: |
+          # Version Code = GitHub run number (always increasing)
+          VERSION_CODE=${{ github.run_number }}
+          
+          # Version Name logic
+          if [ -n "${{ github.event.inputs.version_name }}" ]; then
+            VERSION_NAME="${{ github.event.inputs.version_name }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION_NAME="${{ github.ref_name }}"
+            VERSION_NAME="${VERSION_NAME#v}"   # remove leading v
+          else
+            # Read from pubspec.yaml
+            VERSION_NAME=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
+            VERSION_NAME="${VERSION_NAME}+${VERSION_CODE}"
+          fi
+          
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_OUTPUT
+          
+          echo "========================================"
+          echo "Version Name : $VERSION_NAME"
+          echo "Version Code : $VERSION_CODE"
+          echo "========================================"
+
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i "s/^version: .*/version: ${{ steps.version.outputs.VERSION_NAME }}+${{ steps.version.outputs.VERSION_CODE }}/" pubspec.yaml
+          echo "Updated pubspec.yaml:"
+          grep '^version:' pubspec.yaml
 
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Analyze project
-        run: flutter analyze --no-fatal-infos || true
-
-      - name: Build Universal APK (all ABIs)
-        run: flutter build apk --release --no-tree-shake-icons
+      - name: Build Universal APK
+        run: flutter build apk --release --no-tree-shake-icons --build-name=${{ steps.version.outputs.VERSION_NAME }} --build-number=${{ steps.version.outputs.VERSION_CODE }}
 
       - name: Build Split APKs (per ABI)
-        run: flutter build apk --release --split-per-abi --no-tree-shake-icons
+        run: flutter build apk --release --split-per-abi --no-tree-shake-icons --build-name=${{ steps.version.outputs.VERSION_NAME }} --build-number=${{ steps.version.outputs.VERSION_CODE }}
 
-      - name: List generated APKs
-        run: |
-          echo "=== Universal APK ==="
-          ls -lh build/app/outputs/flutter-apk/app-release.apk || true
-          echo ""
-          echo "=== Split APKs ==="
-          ls -lh build/app/outputs/flutter-apk/*.apk
-
-      - name: Rename APKs for clarity
+      - name: Prepare release folder
         run: |
           mkdir -p release-apks
-          # Universal
-          cp build/app/outputs/flutter-apk/app-release.apk release-apks/NexusFileManager-universal-v${{ github.ref_name }}.apk
+          V="${{ steps.version.outputs.VERSION_NAME }}"
           
-          # Per-ABI
-          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk release-apks/NexusFileManager-armeabi-v7a-v${{ github.ref_name }}.apk
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk   release-apks/NexusFileManager-arm64-v8a-v${{ github.ref_name }}.apk
-          cp build/app/outputs/flutter-apk/app-x86_64-release.apk      release-apks/NexusFileManager-x86_64-v${{ github.ref_name }}.apk
-
+          cp build/app/outputs/flutter-apk/app-release.apk          "release-apks/NexusFileManager-universal-v${V}.apk"
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "release-apks/NexusFileManager-armeabi-v7a-v${V}.apk"
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk   "release-apks/NexusFileManager-arm64-v8a-v${V}.apk"
+          cp build/app/outputs/flutter-apk/app-x86_64-release.apk      "release-apks/NexusFileManager-x86_64-v${V}.apk"
+          
+          echo "Generated APKs:"
           ls -lh release-apks/
 
       - name: Upload APKs as Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: NexusFileManager-APKs-${{ github.ref_name }}
+          name: NexusFileManager-APKs-v${{ steps.version.outputs.VERSION_NAME }}
           path: release-apks/*.apk
-          retention-days: 30
+          retention-days: 90
 
-      - name: Create / Update GitHub Release and upload APKs
-        uses: softprops/action-gh-release@v2
+      # ========== RELEASE (only on tags) ==========
+      - name: Create GitHub Release (Tag)
         if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: Nexus File Manager ${{ github.ref_name }}
@@ -81,25 +108,53 @@ jobs:
             
             **Powerful. Precise. Beautiful.**
             
-            ### Android APKs included:
-            | File | Description |
-            |------|-------------|
-            | `NexusFileManager-universal-*.apk` | Universal APK (all architectures) |
-            | `NexusFileManager-arm64-v8a-*.apk` | For modern 64-bit ARM devices (recommended) |
-            | `NexusFileManager-armeabi-v7a-*.apk` | For older 32-bit ARM devices |
-            | `NexusFileManager-x86_64-*.apk` | For x86_64 emulators / devices |
+            ### Android APKs
+            | File | Recommended for |
+            |------|-----------------|
+            | `NexusFileManager-universal-*.apk` | All devices (larger size) |
+            | `NexusFileManager-arm64-v8a-*.apk` | Most modern phones (best choice) |
+            | `NexusFileManager-armeabi-v7a-*.apk` | Older 32-bit ARM devices |
+            | `NexusFileManager-x86_64-*.apk` | Emulators / x86 devices |
             
-            ### How to install
-            1. Download the APK that matches your device (arm64-v8a is best for most phones)
+            **Version Code:** `${{ steps.version.outputs.VERSION_CODE }}`
+            
+            ### Install
+            1. Download the correct APK for your device
             2. Enable "Install from unknown sources"
-            3. Install the APK
-            
-            ---
-            Built automatically by GitHub Actions.
-          files: |
-            release-apks/*.apk
+            3. Open the APK and install
+          files: release-apks/*.apk
           draft: false
           prerelease: false
           generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ========== CONTINUOUS BUILD (on main push) ==========
+      - name: Update "Latest" Pre-release (main branch)
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Build (Auto)
+          body: |
+            ## Latest Continuous Build
+            
+            This is an **automatic build** from the `main` branch.
+            
+            - Version: `${{ steps.version.outputs.VERSION_NAME }}`
+            - Version Code: `${{ steps.version.outputs.VERSION_CODE }}`
+            - Commit: ${{ github.sha }}
+            
+            ### APKs
+            - Universal
+            - arm64-v8a (recommended)
+            - armeabi-v7a
+            - x86_64
+            
+            > This pre-release is updated every time there is a new commit on `main`.
+          files: release-apks/*.apk
+          draft: false
+          prerelease: true
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

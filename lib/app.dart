@@ -19,7 +19,9 @@ class NexusApp extends ConsumerWidget {
       BrightnessPref.dark => true,
       BrightnessPref.light => false,
       BrightnessPref.system =>
-        MediaQuery.platformBrightnessOf(context) == Brightness.dark,
+        (MediaQuery.maybeOf(context)?.platformBrightness ??
+                WidgetsBinding.instance.platformDispatcher.platformBrightness) ==
+            Brightness.dark,
     };
 
     final metrics = NexusMetrics.of(context, touchMode: look.touchMode);

@@ -5,6 +5,7 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -89,16 +90,20 @@ class _GridView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final look = ref.watch(lookProvider);
-    final minTile = look.touchMode ? 118.0 : 96.0;
+    final mobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+    final minTile = look.touchMode
+        ? (mobile ? 100.0 : 118.0)
+        : (mobile ? 78.0 : 96.0);
+    final pad = mobile ? 8.0 : 12.0;
 
     return LayoutBuilder(builder: (context, box) {
       return GridView.builder(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(pad),
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: minTile * 1.25,
-          mainAxisSpacing: 6,
-          crossAxisSpacing: 6,
-          childAspectRatio: 0.92,
+          maxCrossAxisExtent: minTile * (mobile ? 1.15 : 1.25),
+          mainAxisSpacing: mobile ? 4.0 : 6.0,
+          crossAxisSpacing: mobile ? 4.0 : 6.0,
+          childAspectRatio: mobile ? 0.88 : 0.92,
         ),
         itemCount: entries.length,
         itemBuilder: (context, i) => FileTile(entry: entries[i]),
@@ -612,15 +617,23 @@ class FileTileBody extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          FileGlyph(category: entry.category, size: touchMode ? 40 : 34),
-          const SizedBox(height: 7),
+          FileGlyph(
+            category: entry.category,
+            size: touchMode
+                ? ((!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 34 : 40)
+                : ((!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 28 : 34),
+          ),
+          SizedBox(
+              height: (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 4 : 7),
           Text(
             entry.name,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: touchMode ? 13 : 12,
+              fontSize: touchMode
+                  ? ((!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 12.0 : 13.0)
+                  : ((!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 11.0 : 12.0),
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
               color: dark ? NexusColors.textDark : NexusColors.textLight,
             ),
@@ -639,8 +652,11 @@ class FileTileBody extends ConsumerWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final hoverBg = dark ? NexusColors.surface2Dark : NexusColors.surface2Light;
     return Container(
-      height: touchMode ? 52 : 36,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      height: touchMode
+          ? ((!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 44.0 : 52.0)
+          : ((!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 32.0 : 36.0),
+      padding: EdgeInsets.symmetric(
+          horizontal: (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ? 8.0 : 12.0),
       decoration: BoxDecoration(
         color: selected
             ? Theme.of(context).colorScheme.primary.withValues(alpha:  0.10)

@@ -62,7 +62,7 @@ class AppServices {
   late final merge = const MergeService();
   late final diff = const DiffEngine();
   late final ruleEngine = const RuleEngine();
-  late final metadata = const MetadataService();
+  late final metadata = MetadataService(journal: journal, isFrozen: freeze.isFrozen);
   late final templates = TemplateService(db);
   late final pipelines = PipelineService(db, ops);
   late final macros = MacroService(db);

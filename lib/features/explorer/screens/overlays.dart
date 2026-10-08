@@ -2,6 +2,7 @@
 /// conflict dialog, command palette (Ctrl K) and the quick session switcher.
 library;
 
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -76,7 +77,7 @@ class Overlays {
       context: context,
       builder: (ctx) => _SmartPasteDialog(plan: plan),
     );
-    if (ok != true) return;
+    if (!ok) return;
 
     final batch = svc.journal.newBatch(isCut ? 'smart-move' : 'smart-copy');
     try {
@@ -192,10 +193,16 @@ class Overlays {
         final name = await promptDialog(context,
             title: 'Compress selection', initial: 'archive.zip');
         if (name == null) return;
+        final zipPath0 = pu.join(dest, name);
+        if (FileSystemEntity.typeSync(zipPath0) != FileSystemEntityType.notFound) {
+          final ok = await confirmDialog(context,
+              title: 'Overwrite archive?', message: '"$name" already exists. Replace it?');
+          if (!ok) return;
+        }
         final batch = svc.journal.newBatch('compress');
         final zipPath = await svc.ops.compressToZip(
-            paths, pu.join(dest, name),
-            batchId: batch);
+            paths, zipPath0,
+            batchId: batch, overwrite: true);
         svc.ops.finish(batch);
         toast(ref, 'Created ${pu.basename(zipPath)}');
       case 'freeze':
@@ -326,17 +333,25 @@ class Overlays {
         ref.read(diffLeftProvider.notifier).state = entry.path;
         _go(context, '/tools/diff');
       case 'zip':
+        final zipPath0 = pu.join(entry.parent, '${entry.name}.zip');
+        if (FileSystemEntity.typeSync(zipPath0) != FileSystemEntityType.notFound) {
+          final ok = await confirmDialog(context,
+              title: 'Overwrite archive?',
+              message: '"${entry.name}.zip" already exists. Replace it?');
+          if (!ok) return;
+        }
         final batch = svc.journal.newBatch('compress');
         await svc.ops.compressToZip([entry.path],
-            pu.join(entry.parent, '${entry.name}.zip'),
-            batchId: batch);
+            zipPath0,
+            batchId: batch, overwrite: true);
         svc.ops.finish(batch);
         toast(ref, 'Created ${entry.name}.zip');
       case 'unzip':
         final batch = svc.journal.newBatch('extract');
-        await svc.ops.extractZip(entry.path, entry.parent, batchId: batch);
+        final extractedRoot =
+            await svc.ops.extractZip(entry.path, entry.parent, batchId: batch);
         svc.ops.finish(batch);
-        toast(ref, 'Extracted ${entry.name}');
+        toast(ref, 'Extracted ${entry.name} → ${pu.basename(extractedRoot)}');
       case 'teleport':
         ref.read(teleportPendingProvider.notifier).state = [entry.path];
         _go(context, '/tools/teleport');

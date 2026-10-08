@@ -149,6 +149,7 @@ class JournalEntry {
     this.meta,
     required this.createdAtMs,
     this.undone = false,
+    this.discarded = false,
   });
 
   final int? id;
@@ -159,6 +160,9 @@ class JournalEntry {
   final String? meta;
   final int createdAtMs;
   final bool undone;
+
+  /// True when a newer operation invalidated the redo of this entry.
+  final bool discarded;
 
   String get display => switch (op) {
         JournalOp.copy => 'copied to ${p.basename(toPath ?? '')}',

@@ -22,7 +22,16 @@ class DbService {
     db.execute('PRAGMA foreign_keys = ON;');
     final svc = DbService._(db);
     svc._migrate();
+    svc._migrateColumns();
     return svc;
+  }
+
+  /// Column-level migrations for databases created before audit v2.
+  void _migrateColumns() {
+    final cols = _db.select('PRAGMA table_info(journal)').map((r) => r['name'] as String).toSet();
+    if (!cols.contains('discarded')) {
+      _db.execute('ALTER TABLE journal ADD COLUMN discarded INTEGER NOT NULL DEFAULT 0');
+    }
   }
 
   void close() => _db.dispose();
@@ -193,8 +202,29 @@ class DbService {
 
   // ── journal (undo + paper trail) ──────────────────────────────────────────
   void addJournal(JournalEntry e) => _db.execute(
-      'INSERT INTO journal(batch_id,op,from_path,to_path,meta,created_at,undone) VALUES(?,?,?,?,?,?,?)',
-      [e.batchId, e.op.name, e.fromPath, e.toPath, e.meta, e.createdAtMs, e.undone ? 1 : 0]);
+      'INSERT INTO journal(batch_id,op,from_path,to_path,meta,created_at,undone,discarded) VALUES(?,?,?,?,?,?,?,?)',
+      [e.batchId, e.op.name, e.fromPath, e.toPath, e.meta, e.createdAtMs, e.undone ? 1 : 0, e.discarded ? 1 : 0]);
+
+  /// Writes a whole batch of entries atomically — a crash mid-batch can no
+  /// longer leave a partial journal record (audit item 31).
+  void addJournalBatch(List<JournalEntry> entries) {
+    _db.execute('BEGIN');
+    try {
+      for (final e in entries) {
+        addJournal(e);
+      }
+      _db.execute('COMMIT');
+    } catch (_) {
+      _db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
+  /// Invalidates every redoable entry — called when a new batch is recorded
+  /// (audit item 10).
+  void discardRedoable() {
+    _db.execute('UPDATE journal SET discarded=1 WHERE undone=1 AND discarded=0');
+  }
 
   List<JournalEntry> journal({String? query, int limit = 2000}) {
     final rows = query == null || query.isEmpty
@@ -227,6 +257,7 @@ class DbService {
         meta: r['meta'] as String?,
         createdAtMs: r['created_at'] as int,
         undone: (r['undone'] as int) == 1,
+        discarded: r['discarded'] == null ? false : (r['discarded'] as int) == 1,
       );
 
   List<BatchInfo> journalBatches({int limit = 300}) {

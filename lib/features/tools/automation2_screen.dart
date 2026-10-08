@@ -799,14 +799,15 @@ class _MetadataTabState extends ConsumerState<MetadataTab> {
         if (e.value.text.trim().isNotEmpty) e.key: e.value.text.trim(),
     };
     try {
+      final batch = svc.journal.newBatch('metadata');
       for (final t in _targets) {
         final ext = pu.ext(t);
         if (const ['mp3', 'flac', 'ogg', 'wav', 'm4a'].contains(ext)) {
-          await svc.metadata.writeId3(t, fields);
+          await svc.metadata.writeId3(t, fields, batchId: batch);
         } else if (const ['jpg', 'jpeg'].contains(ext)) {
-          await svc.metadata.writeJpegExif(t, fields);
+          await svc.metadata.writeJpegExif(t, fields, batchId: batch);
         } else if (const ['docx', 'xlsx', 'pptx', 'epub'].contains(ext)) {
-          await svc.metadata.writeDocumentProps(t, fields);
+          await svc.metadata.writeDocumentProps(t, fields, batchId: batch);
         } else {
           throw NexusException('No metadata writer for ${pu.basename(t)}');
         }

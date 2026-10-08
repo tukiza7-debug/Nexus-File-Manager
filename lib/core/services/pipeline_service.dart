@@ -151,10 +151,12 @@ class PipelineService {
             await _ops.copyPaths(currentPaths, dest, batchId: batchId);
           }
         case 'compress':
+          if (currentPaths.isEmpty) break; // guard empty lists (item 19)
           final zipName = step.args['name'] ?? 'archive.zip';
           final dest = step.args['dest'] ?? pu.dirname(currentPaths.first);
           Directory(dest).createSync(recursive: true);
-          await _ops.compressToZip(currentPaths, pu.join(dest, zipName), batchId: batchId);
+          final uniqueZip = FileOpsService.uniqueCopyName(pu.join(dest, zipName));
+          await _ops.compressToZip(currentPaths, uniqueZip, batchId: batchId);
         case 'trash':
           await _ops.deletePaths(currentPaths, batchId: batchId);
       }

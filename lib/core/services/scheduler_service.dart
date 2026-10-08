@@ -81,8 +81,10 @@ class SchedulerService {
         await _ops.deletePaths(srcs, batchId: batchId);
       case 'compress':
         final name = j.arg.isEmpty ? 'archive-${DateTime.now().millisecondsSinceEpoch}.zip' : j.arg;
-        await _ops.compressToZip(srcs, pu.join(dest.isEmpty ? pu.dirname(srcs.first) : dest, name),
-            batchId: batchId);
+        final zipPath = pu.join(dest.isEmpty ? pu.dirname(srcs.first) : dest, name);
+        // Scheduled jobs never overwrite silently: land on a unique name.
+        final uniqueZip = FileOpsService.uniqueCopyName(zipPath);
+        await _ops.compressToZip(srcs, uniqueZip, batchId: batchId);
       case 'pipeline':
         final p = _pipelines.byId(int.tryParse(j.arg) ?? -1);
         if (p != null) await _pipelines.run(p, srcs, batchId: batchId);

@@ -4,17 +4,17 @@
 
 **File:** `nexus-logo-primary.svg`
 
-This is the **official brand logo** (Logo Concept #1).
+This is the **official brand logo**.
 
 - Geometric letter **N**
-- Deep Navy (`#0A1628`) + Electric Blue accents
+- Deep Navy + Electric Blue accents
 - Signature connected triangle node
 
 Use this for:
 - README
-- Website
-- Documentation
-- Splash screen / Logo Animation
+- Website / documentation
+- Splash screen / Logo Animation (mandatory)
+- In-app branding
 
 ---
 
@@ -22,11 +22,11 @@ Use this for:
 
 **File:** `nexus-icon.svg`
 
-Rounded square version for:
-- Windows taskbar
-- macOS dock
-- Linux desktop
-- App store listings
+Rounded version suitable for:
+- Android launcher icon
+- iOS app icon
+- Windows / macOS / Linux desktop icon
+- App stores
 
 ---
 
@@ -35,15 +35,15 @@ Rounded square version for:
 - Prefer **SVG** whenever possible
 - Keep clear space around the logo
 - Do not distort or change the proportions
-- Dark background version can be created by inverting or using the icon version
+- Use the primary logo for splash animation
 
 ---
 
-## For Developers / Agent za.i
+## For Developers
 
-Place these logos in the frontend public assets or use them directly for:
+These logos should be used for:
 
-1. **Splash Screen / Logo Animation** (mandatory on app start)
-2. Window icon
+1. **Splash Screen / Logo Animation** (mandatory on every app launch)
+2. App icons (all platforms)
 3. About page
-4. README branding
+4. README and documentation branding

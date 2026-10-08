@@ -3,45 +3,61 @@
 **Powerful. Precise. Beautiful.**
 
 <p align="center">
-  <img src="assets/logo/nexus-logo-primary.svg" alt="Nexus File Manager Logo" width="180"/>
+  <img src="assets/logo/nexus-logo-primary.svg" alt="Nexus File Manager Logo" width="200"/>
 </p>
 
-Nexus is a modern, cross-platform file manager built with intention.  
-It combines speed, refined design, and carefully chosen unique features — without bloat or unnecessary complexity.
+<p align="center">
+  <strong>Modern cross-platform file manager</strong><br>
+  Android • iOS • Windows • macOS • Linux
+</p>
 
-> Currently in early development.
+Nexus is a premium, fast, and uniquely powerful file manager built with Flutter.  
+It combines refined design, high performance, and carefully crafted features — without bloat or unnecessary complexity.
 
-**Official Logo** is available in [`assets/logo/`](assets/logo/).  
-See the logo README for usage guidelines (including the mandatory splash animation).
+> Currently in active full development (not an MVP).
 
 ---
 
+## Official Logo
+
+The official logo is located in [`assets/logo/`](assets/logo/).
+
+| File | Usage |
+|------|-------|
+| `nexus-logo-primary.svg` | Main brand logo |
+| `nexus-icon.svg` | App icon |
+| `nexus-logo.svg` | Alternative version |
+
+See [`assets/logo/README.md`](assets/logo/README.md) for usage guidelines.  
+A polished **logo animation** is mandatory on every app launch.
+
+---
 
 ## Vision
 
-Most file managers are either too basic or overloaded with features that feel disconnected.  
+Most file managers are either too basic or overloaded with disconnected features.  
 Nexus aims to be different:
 
 - Exceptionally clean and polished UI
-- Keyboard-first workflow
+- Excellent experience on both mobile and desktop
 - Unique productivity features that actually matter
-- Fast and lightweight (built with Tauri + Rust)
+- Fast and lightweight (built with Flutter)
 - Fully open source
 
 ---
 
 ## Tech Stack
 
-| Layer              | Technology                      |
-|--------------------|---------------------------------|
-| Framework          | Tauri 2                         |
-| Frontend           | React 19 + TypeScript (strict)  |
-| Styling            | Tailwind CSS + customized shadcn/ui |
-| State Management   | Zustand                         |
-| Core / Backend     | Rust                            |
-| Database           | SQLite                          |
-| Package Manager    | pnpm                            |
-| CI/CD              | GitHub Actions                  |
+| Layer              | Technology                          |
+|--------------------|-------------------------------------|
+| Framework          | Flutter (latest stable)             |
+| Language           | Dart (null safety)                  |
+| State Management   | Riverpod 2                          |
+| Navigation         | GoRouter                            |
+| Database           | Isar / Drift                        |
+| Animations         | Flutter + flutter_animate           |
+| Theming            | Custom Material 3                   |
+| Platforms          | Android, iOS, Windows, macOS, Linux |
 
 ---
 
@@ -52,32 +68,32 @@ Nexus aims to be different:
 - **Breadcrumb Timeline** — Scrollable history of visited paths
 - **Path Alias** — Create short custom aliases for long paths
 - **Folder Stack** — Group multiple folders into one expandable stack
-- **Ghost Mode** — Hide specific files and reveal them with a hotkey
-- **Spatial Memory** — Remember icon positions inside folders
-- **Pin to Edge** — Pin important files/folders to the window edge
-- **Work Session** — Save & restore entire workspace state (tabs, paths, layout, selection)
+- **Ghost Mode** — Hide specific files and reveal them with a hotkey / gesture
+- **Spatial Memory** — Remember view positions and layout per folder
+- **Pin to Edge / Favorites Dock** — Quick access to important items
+- **Work Session** — Save & restore entire workspace state
 
 ### File Operations
 - **Smart Paste** — Intelligent conflict handling
 - **Multi-Clipboard Stack** — Multiple clipboard items with quick selector
 - **File Transform Pipeline** — Chain actions (rename → convert → move, etc.)
-- **Visual File Splitter** — Split large files by dragging on the preview
+- **Visual File Splitter** — Split large files with visual control
 - **Merge Files** — Merge PDFs, text files, and images
 - **Content-Aware Rename** — Rename using content from PDF/EPUB etc.
 - **Batch Rule Engine** — Create powerful if-then rules
 - **Deep Undo History** — Searchable undo stack
 - **File Diff View** — Side-by-side comparison
-- **Drag to Action Zone** — Quick action zones on window edges
+- **Drag to Action Zone** — Quick action zones
 
 ### Interface & Experience
 - **Zen Mode** — Distraction-free minimal interface
-- **Peek Window** — Preview folder contents with Alt + Hover
+- **Peek Preview** — Quick preview of folder/file contents
 - **Floating Inspector** — Detachable details panel
 - **Split by Type** — Automatically split view by file type
 - **Focus Tunnel** — Blur non-focused items
 - **Color Blind Safe Mode**
-- **One-Hand / Touch Mode**
-- **Legacy Themes** — Windows 98 / XP / 7 inspired themes
+- **One-Hand Mode** — Optimized for large phones
+- **Legacy Themes** — Retro-inspired themes
 
 ### Automation
 - Macro Recorder
@@ -95,54 +111,15 @@ Nexus aims to be different:
 
 ---
 
-## Project Structure
+## Platform Support
 
-```text
-Nexus-File-Manager/
-├── src-tauri/                 # Rust backend (Tauri)
-│   └── src/
-├── src-ui/                    # React frontend
-│   └── src/
-│       ├── components/        # Reusable UI components
-│       ├── features/          # Feature-based modules
-│       ├── hooks/
-│       ├── stores/            # Zustand stores
-│       ├── lib/
-│       ├── styles/
-│       └── types/
-├── .github/
-│   └── workflows/             # CI/CD pipelines
-├── docs/
-└── README.md
-```
-
----
-
-## Development Roadmap
-
-### v0.1 — MVP
-- Core file navigation (list + grid)
-- Tabs + basic dual pane
-- Breadcrumb Timeline
-- Work Session
-- Zen Mode
-- Multi-Clipboard Stack
-- Essential file operations
-
-### v0.5
-- Live Folder Mirror
-- Path Alias
-- Smart Paste
-- Batch Rule Engine
-- Folder Watchdog
-- Floating Inspector
-- Peek Window
-
-### v1.0
-- Full feature set
-- Plugin system (basic)
-- Auto-update via GitHub Releases
-- Polished installer for Windows, macOS, and Linux
+| Platform  | Status          | Notes                              |
+|-----------|------------------|------------------------------------|
+| Android   | Full support     | Scoped Storage + SAF               |
+| iOS       | Full support     | Proper sandboxing                  |
+| Windows   | Full support     | Native dialogs + keyboard shortcuts|
+| macOS     | Full support     | Native feel + keyboard shortcuts   |
+| Linux     | Full support     | Desktop file integration           |
 
 ---
 
@@ -153,32 +130,70 @@ Nexus-File-Manager/
 - Every UI decision must feel intentional
 - Performance and clarity over feature count
 - Beautiful dark mode & light mode as first-class citizens
-- Keyboard-first, mouse-friendly
+- Excellent touch experience on mobile
+- Keyboard-first on desktop
 
 ---
 
-## Getting Started (Coming Soon)
-
-Development setup instructions will be added once the initial scaffolding is complete.
+## Getting Started
 
 ```bash
-# (Planned)
-pnpm install
-pnpm tauri dev
+# Clone the repository
+git clone https://github.com/tukiza7-debug/Nexus-File-Manager.git
+cd Nexus-File-Manager
+
+# Get dependencies
+flutter pub get
+
+# Run the app
+flutter run
 ```
+
+> Full project structure and code will be generated during active development.
+
+---
+
+## Development Roadmap
+
+### Phase 1 — Foundation
+- Project structure + theming system
+- Logo animation (splash)
+- Core file navigation (list + grid)
+- Basic file operations
+- Dark / Light mode
+
+### Phase 2 — Core Experience
+- Breadcrumb Timeline
+- Work Session
+- Multi-Clipboard Stack
+- Zen Mode
+- Peek Preview
+- Floating Inspector
+
+### Phase 3 — Power Features
+- Live Folder Mirror
+- Batch Rule Engine
+- File Transform Pipeline
+- Folder Watchdog
+- All remaining features
+
+### Phase 4 — Polish & Release
+- Full platform optimization
+- Performance tuning
+- App store ready builds
 
 ---
 
 ## Contributing
 
-This project is in very early stage.  
-Architecture and core structure are currently being established.
+This project is in active full development.  
+High-quality contributions are welcome once the core architecture is stabilized.
 
 ---
 
 ## License
 
-MIT License (planned)
+MIT License
 
 ---
 

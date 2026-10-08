@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/foundation.dart' show compute, kIsWeb;
+import 'package:flutter/services.dart' show MethodChannel;
+import 'package:share_plus/share_plus.dart';
 
 import '../../domain/enums.dart';
 import '../../domain/models.dart';
@@ -321,16 +323,40 @@ class FileSystemService {
   }
 
   /// Opens a file with the platform default handler.
+  ///
+  /// Audit item 21: on Android/iOS this routes through the platform
+  /// channel — ACTION_VIEW via FileProvider on Android, the share sheet as
+  /// a fallback on iOS — instead of throwing UnsupportedError.
   Future<void> openWithSystem(String path) async {
+    if (kIsWeb) return;
+    if (Platform.isAndroid) {
+      try {
+        const channel = MethodChannel('nexus/incoming');
+        final ok = await channel.invokeMethod<bool>('openWith', {'path': path});
+        if (ok != true) {
+          // No handler for this MIME type — fall back to the share sheet so
+          // the user can still pick a target app.
+          await channel.invokeMethod('shareFrom', {'path': path});
+        }
+      } on MissingPluginException {
+        // Platform side not ready; nothing else we can do on mobile.
+      }
+      return;
+    }
+    if (Platform.isIOS) {
+      try {
+        await Share.shareXFiles([XFile(path)]);
+      } catch (_) {
+        // User cancelled the share sheet — not an error.
+      }
+      return;
+    }
     if (Platform.isWindows) {
       await Process.run('explorer', [path]);
     } else if (Platform.isMacOS) {
       await Process.run('open', [path]);
     } else if (Platform.isLinux) {
       await Process.run('xdg-open', [path]);
-    } else {
-      // Mobile handled by the UI layer via share sheet.
-      throw UnsupportedError('openWithSystem unsupported on ${Platform.operatingSystem}');
     }
   }
 

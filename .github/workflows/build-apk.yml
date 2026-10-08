@@ -1,5 +1,9 @@
 name: Build APK (All Types) + Auto Versioning
 
+env:
+  # Single source of truth for the Flutter version (audit item 23 / R7).
+  FLUTTER_VERSION: '3.47.6'
+
 on:
   push:
     branches: [ main ]
@@ -37,7 +41,7 @@ jobs:
         with:
           # Pinned to the exact stable build the codebase targets; an unpinned
           # "channel: stable" caused the AGP/Kotlin/theme breakage of Oct 2026.
-          flutter-version: '3.47.6'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
           cache: true
 
@@ -68,6 +72,29 @@ jobs:
           echo "Version Code : ${VERSION_CODE}"
           echo "Full Version : ${FULL_VERSION}"
           echo "========================================"
+
+      - name: Decode release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          # Audit item 23: sign release APKs with a real keystore from
+          # GitHub secrets. Without the secret the debug fallback in
+          # build.gradle still produces installable (non-updatable) builds.
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "KEYSTORE_BASE64 not set — building with the debug signing fallback."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=upload-keystore.jks
+          EOF
+          echo "key.properties written"
 
       - name: Update version in pubspec.yaml
         run: |

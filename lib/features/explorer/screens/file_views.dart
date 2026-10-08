@@ -530,11 +530,17 @@ class _FileTileState extends ConsumerState<FileTile> {
     }
   }
 
-  void _open(NexusEntry entry) {
+  Future<void> _open(NexusEntry entry) async {
     if (entry.isDir) {
       ref.read(tabsProvider.notifier).navigate(entry.path);
-    } else {
-      ref.read(servicesProvider).fs.openWithSystem(entry.path);
+      return;
+    }
+    // Audit item 21: open failures (no handler, provider missing) surface
+    // as a toast instead of an unhandled async error.
+    try {
+      await ref.read(servicesProvider).fs.openWithSystem(entry.path);
+    } catch (e) {
+      toast(ref, 'Could not open ${entry.name}: $e', error: true);
     }
   }
 }

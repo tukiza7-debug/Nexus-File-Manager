@@ -5,6 +5,18 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// Release signing (audit item 23): when android/key.properties exists —
+// populated by CI from GitHub secrets or manually on a release machine —
+// the release build uses the real keystore. Without it, CI still produces
+// installable artifacts signed with the debug key. APKs signed with
+// different keys cannot update each other; see docs/RELEASE.md.
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+def hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
     namespace = "com.tukiza7.nexus"
     compileSdk = flutter.compileSdkVersion
@@ -30,17 +42,30 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            release {
+                keyAlias = keystoreProperties['keyAlias']
+                keyPassword = keystoreProperties['keyPassword']
+                storeFile = keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+                storePassword = keystoreProperties['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // Signed with the debug keystore so CI can produce installable
-            // artifacts without secrets. To publish to a store, generate a
-            // release keystore, reference it via key.properties, and switch
-            // signingConfig to signingConfigs.release.
-            signingConfig = signingConfigs.debug
+            // Real keystore when secrets are present; debug fallback only on
+            // machines without android/key.properties (CI source builds).
+            signingConfig = hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation("androidx.core:core-ktx:1.13.1")
 }

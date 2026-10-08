@@ -14,22 +14,19 @@
 Nexus is a premium, fast, and uniquely powerful file manager built with Flutter.  
 It combines refined design, high performance, and carefully crafted features — without bloat or unnecessary complexity.
 
-> Currently in active full development (not an MVP).
-
 ---
 
 ## Official Logo
 
-The official logo is located in [`assets/logo/`](assets/logo/).
+All logo assets are available in [`assets/logo/`](assets/logo/).
 
 | File | Usage |
 |------|-------|
 | `nexus-logo-primary.svg` | Main brand logo |
-| `nexus-icon.svg` | App icon |
+| `nexus-icon.svg` | App icon (all platforms) |
 | `nexus-logo.svg` | Alternative version |
 
-See [`assets/logo/README.md`](assets/logo/README.md) for usage guidelines.  
-A polished **logo animation** is mandatory on every app launch.
+A polished **logo animation** is required on every app launch.
 
 ---
 
@@ -41,7 +38,7 @@ Nexus aims to be different:
 - Exceptionally clean and polished UI
 - Excellent experience on both mobile and desktop
 - Unique productivity features that actually matter
-- Fast and lightweight (built with Flutter)
+- Fast and lightweight
 - Fully open source
 
 ---
@@ -61,14 +58,14 @@ Nexus aims to be different:
 
 ---
 
-## Unique Features
+## Features
 
 ### Navigation & Organization
 - **Live Folder Mirror** — Virtual folders that stay in sync both ways
 - **Breadcrumb Timeline** — Scrollable history of visited paths
 - **Path Alias** — Create short custom aliases for long paths
-- **Folder Stack** — Group multiple folders into one expandable stack
-- **Ghost Mode** — Hide specific files and reveal them with a hotkey / gesture
+- **Folder Stack** — Group multiple folders into expandable stacks
+- **Ghost Mode** — Hide specific files and reveal with hotkey/gesture
 - **Spatial Memory** — Remember view positions and layout per folder
 - **Pin to Edge / Favorites Dock** — Quick access to important items
 - **Work Session** — Save & restore entire workspace state
@@ -113,13 +110,13 @@ Nexus aims to be different:
 
 ## Platform Support
 
-| Platform  | Status          | Notes                              |
-|-----------|------------------|------------------------------------|
-| Android   | Full support     | Scoped Storage + SAF               |
-| iOS       | Full support     | Proper sandboxing                  |
-| Windows   | Full support     | Native dialogs + keyboard shortcuts|
-| macOS     | Full support     | Native feel + keyboard shortcuts   |
-| Linux     | Full support     | Desktop file integration           |
+| Platform  | Support       | Notes                                |
+|-----------|---------------|--------------------------------------|
+| Android   | Full support  | Scoped Storage + SAF                 |
+| iOS       | Full support  | Proper sandboxing                    |
+| Windows   | Full support  | Native dialogs + keyboard shortcuts  |
+| macOS     | Full support  | Native feel + keyboard shortcuts     |
+| Linux     | Full support  | Desktop file integration             |
 
 ---
 
@@ -138,18 +135,11 @@ Nexus aims to be different:
 ## Getting Started
 
 ```bash
-# Clone the repository
 git clone https://github.com/tukiza7-debug/Nexus-File-Manager.git
 cd Nexus-File-Manager
-
-# Get dependencies
 flutter pub get
-
-# Run the app
 flutter run
 ```
-
-> Full project structure and code will be generated during active development.
 
 ---
 
@@ -167,4 +157,3 @@ MIT License
 ---
 
 **Nexus File Manager** — Built with care.
-

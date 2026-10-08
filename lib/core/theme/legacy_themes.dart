@@ -256,7 +256,7 @@ class LegacyThemes {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(6),
-          side: BorderSide(color: Colors.black.withOpacity( 0.25)),
+          side: BorderSide(color: Colors.black.withValues(alpha:  0.25)),
         ),
       ),
       cardTheme: CardThemeData(
@@ -264,7 +264,7 @@ class LegacyThemes {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(6),
-          side: BorderSide(color: Colors.black.withOpacity( 0.18)),
+          side: BorderSide(color: Colors.black.withValues(alpha:  0.18)),
         ),
       ),
       dividerTheme: const DividerThemeData(color: Color(0xFFB6BCCC)),

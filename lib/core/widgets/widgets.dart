@@ -63,7 +63,7 @@ class ToastHost extends ConsumerWidget {
                         : (dark ? NexusColors.borderDark : Colors.transparent)),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withOpacity( 0.35),
+                      color: Colors.black.withValues(alpha:  0.35),
                       blurRadius: 18,
                       offset: const Offset(0, 6)),
                 ],
@@ -184,7 +184,7 @@ class ToolScaffold extends StatelessWidget {
                       color: Theme.of(context)
                           .colorScheme
                           .primary
-                          .withOpacity( 0.12),
+                          .withValues(alpha:  0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(icon, size: 20,
@@ -239,7 +239,7 @@ class EmptyState extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity( 0.08),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha:  0.08),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 34,

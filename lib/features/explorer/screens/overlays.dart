@@ -798,7 +798,7 @@ class _CommandPaletteDialogState extends ConsumerState<CommandPaletteDialog> {
                   final it = matches[i];
                   return ListTile(
                     dense: true,
-                    hoverColor: Theme.of(context).colorScheme.primary.withOpacity( 0.10),
+                    hoverColor: Theme.of(context).colorScheme.primary.withValues(alpha:  0.10),
                     selected: i == _selected,
                     leading: Icon(it.icon ?? Icons.chevron_right_rounded, size: 18),
                     title: Text(it.title,

@@ -154,17 +154,17 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
                         final line = _result![i];
                         final (bg, marker, markerColor) = switch (line.kind) {
                           DiffKind.added => (
-                              NexusColors.ok.withOpacity( 0.13),
+                              NexusColors.ok.withValues(alpha:  0.13),
                               '+',
                               NexusColors.ok
                             ),
                           DiffKind.removed => (
-                              NexusColors.danger.withOpacity( 0.13),
+                              NexusColors.danger.withValues(alpha:  0.13),
                               '−',
                               NexusColors.danger
                             ),
                           DiffKind.changed => (
-                              NexusColors.warn.withOpacity( 0.10),
+                              NexusColors.warn.withValues(alpha:  0.10),
                               '~',
                               NexusColors.warn
                             ),
@@ -279,9 +279,9 @@ class _DiffSpansText extends StatelessWidget {
       children.add(TextSpan(
         text: line.text.substring(s.start.clamp(0, line.text.length), end),
         style: TextStyle(backgroundColor: switch (s.kind) {
-          DiffKind.added => NexusColors.ok.withOpacity( 0.35),
-          DiffKind.removed => NexusColors.danger.withOpacity( 0.35),
-          DiffKind.changed => NexusColors.warn.withOpacity( 0.35),
+          DiffKind.added => NexusColors.ok.withValues(alpha:  0.35),
+          DiffKind.removed => NexusColors.danger.withValues(alpha:  0.35),
+          DiffKind.changed => NexusColors.warn.withValues(alpha:  0.35),
           _ => null,
         }),
       ));

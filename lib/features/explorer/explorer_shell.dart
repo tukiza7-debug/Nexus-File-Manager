@@ -292,7 +292,7 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
                                         decor.squared ? 0 : 14),
                                     border: Border.all(
                                         color: decor.borderColor
-                                            .withOpacity( 0.7)),
+                                            .withValues(alpha:  0.7)),
                                   ),
                                   child: widget.child,
                                 ),
@@ -557,11 +557,11 @@ class _WinBtn extends StatelessWidget {
         onTap: onTap,
         hoverColor: danger
             ? NexusColors.danger
-            : Theme.of(context).colorScheme.onSurface.withOpacity( 0.08),
+            : Theme.of(context).colorScheme.onSurface.withValues(alpha:  0.08),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 13),
           child: Icon(icon, size: 16,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity( 0.75)),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha:  0.75)),
         ),
       ),
     );

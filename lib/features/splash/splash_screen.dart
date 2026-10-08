@@ -83,7 +83,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   gradient: RadialGradient(
                     colors: [
                       (dark ? NexusColors.blue : NexusColors.blueSoft)
-                          .withOpacity( dark ? 0.16 : 0.10),
+                          .withValues(alpha:  dark ? 0.16 : 0.10),
                       Colors.transparent,
                     ],
                   ),
@@ -166,7 +166,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       value: _nodeCtrl.value.clamp(0, 1),
                       backgroundColor:
                           (dark ? NexusColors.borderDark : NexusColors.borderLight)
-                              .withOpacity( 0.6),
+                              .withValues(alpha:  0.6),
                     ),
                   ),
                 ),
@@ -199,7 +199,7 @@ class _NodePulsePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final s = size.width / 512; // viewBox → widget scale
     final glow = Paint()
-      ..color = NexusColors.blueSoft.withOpacity( 0.35 * (1 - progress))
+      ..color = NexusColors.blueSoft.withValues(alpha: 0.35 * (1 - progress))
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
 
     // Edges draw as progress crosses each phase.

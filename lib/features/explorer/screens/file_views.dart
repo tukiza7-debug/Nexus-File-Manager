@@ -380,7 +380,7 @@ class _TouchFrame extends ConsumerWidget {
                     : NexusColors.borderLight),
             boxShadow: [
               BoxShadow(
-                  color: Colors.black.withOpacity( 0.18),
+                  color: Colors.black.withValues(alpha:  0.18),
                   blurRadius: 16,
                   offset: const Offset(0, 6)),
             ],
@@ -600,7 +600,7 @@ class FileTileBody extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
       decoration: BoxDecoration(
         color: selected
-            ? Theme.of(context).colorScheme.primary.withOpacity( 0.10)
+            ? Theme.of(context).colorScheme.primary.withValues(alpha:  0.10)
             : hover
                 ? hoverBg
                 : Colors.transparent,
@@ -640,7 +640,7 @@ class FileTileBody extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: selected
-            ? Theme.of(context).colorScheme.primary.withOpacity( 0.10)
+            ? Theme.of(context).colorScheme.primary.withValues(alpha:  0.10)
             : hover
                 ? hoverBg
                 : Colors.transparent,

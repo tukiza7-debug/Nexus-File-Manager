@@ -313,8 +313,7 @@ class _EditorState extends ConsumerState<_Editor> {
             child: ReorderableListView.builder(
               shrinkWrap: true,
               itemCount: _p.steps.length,
-              onReorder: (a, b) => setState(() {
-                if (b > a) b--;
+              onReorderItem: (a, b) => setState(() {
                 final steps = [..._p.steps];
                 final s = steps.removeAt(a);
                 steps.insert(b, s);

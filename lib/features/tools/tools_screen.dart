@@ -135,7 +135,7 @@ class _ToolCardState extends State<_ToolCard> {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: _hover
-                  ? Theme.of(context).colorScheme.primary.withOpacity( 0.6)
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha:  0.6)
                   : dark
                       ? NexusColors.borderDark
                       : NexusColors.borderLight,
@@ -147,7 +147,7 @@ class _ToolCardState extends State<_ToolCard> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity( 0.11),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha:  0.11),
                   borderRadius: BorderRadius.circular(9),
                 ),
                 child: Icon(widget.icon,
@@ -375,8 +375,7 @@ class _MergeSheetState extends ConsumerState<_MergeSheet> {
                 child: ReorderableListView.builder(
                   shrinkWrap: true,
                   itemCount: _items.length,
-                  onReorder: (a, b) => setState(() {
-                    if (b > a) b--;
+                  onReorderItem: (a, b) => setState(() {
                     final it = _items.removeAt(a);
                     _items.insert(b, it);
                   }),
@@ -395,7 +394,7 @@ class _MergeSheetState extends ConsumerState<_MergeSheet> {
               ),
             const SizedBox(height: 10),
             DropdownButtonFormField<MergeMode>(
-              value: _mode,
+              initialValue: _mode,
               items: const [
                 DropdownMenuItem(value: MergeMode.text, child: Text('Text — join with newline')),
                 DropdownMenuItem(value: MergeMode.csv, child: Text('CSV / TSV — append rows')),

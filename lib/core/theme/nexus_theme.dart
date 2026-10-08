@@ -122,7 +122,7 @@ class NexusTheme {
       textTheme: textTheme,
       textSelectionTheme: TextSelectionThemeData(
         cursorColor: accent,
-        selectionColor: accent.withOpacity( 0.30),
+        selectionColor: accent.withValues(alpha:  0.30),
         selectionHandleColor: accent,
       ),
       appBarTheme: AppBarTheme(
@@ -198,7 +198,7 @@ class NexusTheme {
         style: IconButton.styleFrom(
           foregroundColor:
               isDark ? NexusColors.textDimDark : NexusColors.textDimLight,
-          focusColor: accent.withOpacity( 0.25),
+          focusColor: accent.withValues(alpha:  0.25),
           hoverColor: (isDark ? NexusColors.surface3Dark : NexusColors.surface3Light),
         ),
       ),
@@ -271,9 +271,9 @@ class NexusTheme {
         thumbColor: WidgetStateProperty.resolveWith((s) => s
                 .contains(WidgetState.hovered)
             ? (isDark ? NexusColors.textDimDark : NexusColors.textDimLight)
-                .withOpacity( 0.85)
+                .withValues(alpha:  0.85)
             : (isDark ? NexusColors.borderDark : NexusColors.borderLight)
-                .withOpacity( 0.9)),
+                .withValues(alpha:  0.9)),
         radius: const Radius.circular(8),
         minThumbLength: 48,
       ),

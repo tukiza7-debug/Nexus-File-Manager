@@ -25,7 +25,7 @@ class TabsBar extends ConsumerWidget {
             child: ReorderableListView.builder(
               buildDefaultDragHandles: false,
               scrollDirection: Axis.horizontal,
-              onReorder: (oldI, newI) =>
+              onReorderItem: (oldI, newI) =>
                   ref.read(tabsProvider.notifier).reorder(oldI, newI),
               proxyDecorator: (child, index, animation) => ScaleTransition(
                 scale: animation.drive(Tween(begin: 1.0, end: 1.05)),
@@ -108,7 +108,7 @@ class _TabChipState extends State<_TabChip> {
                     : NexusColors.surface2Light),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
             border: Border.all(
-              color: widget.active ? accent.withOpacity( 0.55) : Colors.transparent,
+              color: widget.active ? accent.withValues(alpha:  0.55) : Colors.transparent,
             ),
           ),
           child: Row(

@@ -48,7 +48,7 @@ class EdgeDock extends ConsumerWidget {
       duration: const Duration(milliseconds: 160),
       offset: const Offset(0, 0),
       child: Material(
-        color: bg.withOpacity( 0.92),
+        color: bg.withValues(alpha:  0.92),
         borderRadius: BorderRadius.circular(10),
         child: Container(
           padding: const EdgeInsets.all(4),
@@ -199,12 +199,12 @@ class DragActionZone extends ConsumerWidget {
         margin: const EdgeInsets.only(right: 14),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface.withOpacity( 0.97),
+          color: Theme.of(context).colorScheme.surface.withValues(alpha:  0.97),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: NexusColors.blueSoft, width: 1.4),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity( 0.3),
+                color: Colors.black.withValues(alpha:  0.3),
                 blurRadius: 24,
                 offset: const Offset(0, 8)),
           ],
@@ -227,7 +227,7 @@ class DragActionZone extends ConsumerWidget {
                     final hover = candidates.isNotEmpty;
                     return Material(
                       color: hover
-                          ? Theme.of(context).colorScheme.primary.withOpacity( 0.16)
+                          ? Theme.of(context).colorScheme.primary.withValues(alpha:  0.16)
                           : Theme.of(context).brightness == Brightness.dark
                               ? NexusColors.surface2Dark
                               : NexusColors.surface2Light,
@@ -284,7 +284,7 @@ class FocusTunnelLayer extends StatelessWidget {
           margin: const EdgeInsets.only(top: 12),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
-            color: NexusColors.navy.withOpacity( 0.92),
+            color: NexusColors.navy.withValues(alpha:  0.92),
             borderRadius: BorderRadius.circular(20),
           ),
           child: const Row(
@@ -317,7 +317,7 @@ class ZenOverlay extends ConsumerWidget {
           margin: const EdgeInsets.only(bottom: 40),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: NexusColors.navy.withOpacity( 0.85),
+            color: NexusColors.navy.withValues(alpha:  0.85),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
@@ -477,7 +477,7 @@ class _FloatingInspectorState extends ConsumerState<FloatingInspector> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 6),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity( 0.10),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha:  0.10),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Column(

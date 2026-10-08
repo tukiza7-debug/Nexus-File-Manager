@@ -397,10 +397,9 @@ class TabsController extends StateNotifier<TabsState> {
 
   void reorder(int oldIndex, int newIndex) {
     final list = [...state.tabs];
-    var target = newIndex;
-    if (target > oldIndex) target--;
+    // onReorderItem already adjusts newIndex for the removed item.
     final t = list.removeAt(oldIndex);
-    list.insert(target.clamp(0, list.length), t);
+    list.insert(newIndex.clamp(0, list.length), t);
     state = TabsState(tabs: list, activeId: state.activeId);
     _svc.sessions.flushAutosave(payload());
   }

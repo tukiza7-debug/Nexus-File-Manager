@@ -322,7 +322,7 @@ class _Row extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 1),
       child: Material(
         color: highlight
-            ? accent.withOpacity( 0.14)
+            ? accent.withValues(alpha:  0.14)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(

@@ -593,7 +593,7 @@ class _RuleEditorState extends ConsumerState<_RuleEditor> {
       children: [
         Expanded(
           child: DropdownButtonFormField<String>(
-            value: c.field,
+            initialValue: c.field,
             items: [
               for (final f in _fields) DropdownMenuItem(value: f, child: Text(f)),
             ],
@@ -604,7 +604,7 @@ class _RuleEditorState extends ConsumerState<_RuleEditor> {
         const SizedBox(width: 6),
         Expanded(
           child: DropdownButtonFormField<String>(
-            value: c.match,
+            initialValue: c.match,
             items: [
               for (final m in _matches) DropdownMenuItem(value: m, child: Text(m)),
             ],

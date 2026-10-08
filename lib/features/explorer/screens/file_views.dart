@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/nexus_database.dart' show Offset2D;
 import '../../../core/theme/nexus_theme.dart';
+import '../../../core/utils/responsive.dart';
 import '../../../core/utils/format_utils.dart' as f;
 import '../../../core/widgets/widgets.dart';
 import '../../../domain/enums.dart';
@@ -90,20 +91,16 @@ class _GridView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final look = ref.watch(lookProvider);
-    final mobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-    final minTile = look.touchMode
-        ? (mobile ? 100.0 : 118.0)
-        : (mobile ? 78.0 : 96.0);
-    final pad = mobile ? 8.0 : 12.0;
+    final m = NexusMetrics.of(context, touchMode: look.touchMode);
 
     return LayoutBuilder(builder: (context, box) {
       return GridView.builder(
-        padding: EdgeInsets.all(pad),
+        padding: EdgeInsets.all(m.gridPadding),
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: minTile * (mobile ? 1.15 : 1.25),
-          mainAxisSpacing: mobile ? 4.0 : 6.0,
-          crossAxisSpacing: mobile ? 4.0 : 6.0,
-          childAspectRatio: mobile ? 0.88 : 0.92,
+          maxCrossAxisExtent: m.gridMinTile * (m.isPhone ? 1.15 : 1.25),
+          mainAxisSpacing: m.gridGap,
+          crossAxisSpacing: m.gridGap,
+          childAspectRatio: m.gridAspect,
         ),
         itemCount: entries.length,
         itemBuilder: (context, i) => FileTile(entry: entries[i]),

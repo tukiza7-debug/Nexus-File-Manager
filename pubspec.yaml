@@ -1,7 +1,7 @@
 name: nexus_file_manager
 description: "Nexus File Manager — Powerful. Precise. Beautiful."
 publish_to: "none"
-version: 1.0.3+17
+version: 1.0.4+20
 
 environment:
   sdk: ">=3.5.0 <4.0.0"

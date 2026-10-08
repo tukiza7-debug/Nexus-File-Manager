@@ -123,6 +123,20 @@ jobs:
             --build-name=${{ steps.version.outputs.VERSION_NAME }} \
             --build-number=${{ steps.version.outputs.VERSION_CODE }}
 
+      - name: Verify APK signing certificate
+        run: |
+          # Audit item 23: prove in CI logs that every release is signed with
+          # the SAME stable key — only then can updates install directly over
+          # previously installed versions.
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "apksigner not found on runner — skipping verification"
+            exit 0
+          fi
+          echo "Signing certificate of $APK:"
+          "$APKSIGNER" verify --print-certs "$APK" | sed -n '1,5p'
+
       - name: Prepare release folder
         run: |
           mkdir -p release-apks

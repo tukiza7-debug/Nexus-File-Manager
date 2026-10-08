@@ -62,7 +62,14 @@ FileOpsService, OperationJournal) is unchanged.
   gate (MANAGE_EXTERNAL_STORAGE / legacy / media permissions) with a limited
   mode.
 - Release signing reads `android/key.properties` from CI secrets with an
-  automatic debug-keystore fallback.
+  automatic debug-keystore fallback. The dedicated release keystore
+  (`nexus-release`, certificate SHA-256 `D3:83:27:8D…78:1C`, valid until 2056)
+  is now provisioned as repository secrets, so every build from v1.1.0 shares
+  the same signature and future updates install directly over previous ones.
+  Builds up to v1.0.5 used per-run debug keys (each release had a different
+  certificate) and need a one-time uninstall before installing v1.1.0; the
+  workflow now also prints the APK certificate SHA-256 after each build so
+  signing consistency is verifiable in CI logs.
 
 ### Teleport (items 24–25)
 

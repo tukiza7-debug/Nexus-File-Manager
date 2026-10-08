@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -38,6 +41,17 @@ class NexusApp extends ConsumerWidget {
       themeMode: dark ? ThemeMode.dark : ThemeMode.light,
       routerConfig: ref.watch(routerProvider),
       scrollBehavior: const _ScrollFine(),
+      // Keep phone UI denser: clamp system font scale so chrome/tiles stay compact.
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        final mobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+        if (!mobile) return child ?? const SizedBox.shrink();
+        final factor = mq.textScaler.scale(1.0).clamp(0.85, 1.0);
+        return MediaQuery(
+          data: mq.copyWith(textScaler: TextScaler.linear(factor)),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

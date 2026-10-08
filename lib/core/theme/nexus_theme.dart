@@ -97,6 +97,7 @@ class NexusTheme {
     required Brightness bright,
     required String accentHex,
     required bool colorblindSafe,
+    VisualDensity? density,
   }) {
     final accent = _parseAccent(accentHex, bright);
     final isDark = bright == Brightness.dark;
@@ -121,10 +122,10 @@ class NexusTheme {
       scaffoldBackgroundColor:
           isDark ? NexusColors.bgDark : NexusColors.bgLight,
       splashFactory: InkSparkle.splashFactory,
-      // Compact on phones so the desktop-first chrome does not feel oversized.
-      visualDensity: (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
-          ? VisualDensity.compact
-          : VisualDensity.comfortable,
+      visualDensity: density ??
+          ((!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+              ? VisualDensity.compact
+              : VisualDensity.comfortable),
       textTheme: textTheme,
       textSelectionTheme: TextSelectionThemeData(
         cursorColor: accent,

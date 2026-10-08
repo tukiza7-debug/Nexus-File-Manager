@@ -114,7 +114,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: NexusFileManager-APKs-v${{ steps.version.outputs.VERSION_NAME }}-${{ steps.version.outputs.VERSION_CODE }}
-          path: release-apks/*.apk
+          path: release-apks/*
           retention-days: 90
 
       - name: Create GitHub Release (on Tag)
@@ -135,9 +135,10 @@ jobs:
             | `NexusFileManager-arm64-v8a-*.apk` | Most modern phones (best choice) |
             | `NexusFileManager-armeabi-v7a-*.apk` | Older 32-bit ARM devices |
             | `NexusFileManager-x86_64-*.apk` | Emulators / x86 devices |
+            | `NexusFileManager-v*.aab` | Google Play upload |
             
             **Version Code:** `${{ steps.version.outputs.VERSION_CODE }}`
-          files: release-apks/*.apk
+          files: release-apks/*
           draft: false
           prerelease: false
           generate_release_notes: true
@@ -164,7 +165,8 @@ jobs:
             - arm64-v8a (recommended)
             - armeabi-v7a
             - x86_64
-          files: release-apks/*.apk
+            - AAB (Play Store)
+          files: release-apks/*
           draft: false
           prerelease: true
           generate_release_notes: false

@@ -340,7 +340,14 @@ class UiController extends StateNotifier<UiState> {
 
   void setFocusTunnel(String? path) =>
       state = state.copyWith(focusTunnelPath: path, clearFocusTunnel: path == null);
-  void setPeek(String? path) => state = state.copyWith(peekPath: path, clearPeek: path == null);
+
+  /// Audit item 28: no-op when the value is unchanged — mouse exits fire on
+  /// every tile and must not rebuild the whole explorer grid.
+  void setPeek(String? path) {
+    if (state.peekPath == path) return;
+    state = state.copyWith(peekPath: path, clearPeek: path == null);
+  }
+
   void setInspector(String? path) =>
       state = state.copyWith(inspectorPath: path, clearInspector: path == null);
   void toggleInspector(String path) => state = state.copyWith(

@@ -3,11 +3,13 @@
 library;
 
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/nexus_theme.dart';
+import '../../core/services/diff_engine.dart';
 import '../../core/utils/path_utils.dart' as pu;
 import '../../core/widgets/widgets.dart';
 import '../../domain/models.dart';
@@ -26,6 +28,7 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
   final _bCtrl = TextEditingController();
   List<DiffLine>? _result;
   bool _ignoreWs = false;
+  bool _busy = false;
   bool _swapped = false;
 
   @override
@@ -53,21 +56,39 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
     super.dispose();
   }
 
-  void _run() {
+  static const int _maxDiffBytes = 4 * 1024 * 1024; // 4 MiB per side
+
+  Future<void> _run() async {
     final a = _aCtrl.text.trim();
     final b = _bCtrl.text.trim();
     if (a.isEmpty || b.isEmpty) {
       setState(() => _result = null);
       return;
     }
+    setState(() => _busy = true);
     try {
-      final aText = File(a).readAsStringSync();
-      final bText = File(b).readAsStringSync();
-      final svc = ref.read(servicesProvider);
-      setState(() => _result =
-          svc.diff.diffLines(aText, bText, ignoreWhitespace: _ignoreWs));
+      // Copy to locals so the closure sent to the isolate captures nothing
+      // of `this`.
+      final ignoreWs = _ignoreWs;
+      // Audit item 34: read + diff off the UI isolate with a size limit.
+      final result = await Isolate.run(() {
+        final fa = File(a);
+        final fb = File(b);
+        if (fa.lengthSync() > _maxDiffBytes || fb.lengthSync() > _maxDiffBytes) {
+          throw const FileSystemException('File exceeds the diff size limit (4 MiB per side)');
+        }
+        final aText = fa.readAsStringSync();
+        final bText = fb.readAsStringSync();
+        return const DiffEngine()
+            .diffLines(aText, bText, ignoreWhitespace: ignoreWs);
+      });
+      if (!mounted) return;
+      setState(() => _result = result);
     } catch (e) {
+      if (!mounted) return;
       toast(ref, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 

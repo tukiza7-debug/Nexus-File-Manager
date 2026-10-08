@@ -14,6 +14,7 @@ import '../../../core/db/nexus_database.dart' show Offset2D;
 import '../../../core/theme/nexus_theme.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/utils/format_utils.dart' as f;
+import '../../../core/utils/platform_utils.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../domain/enums.dart';
 import '../../../domain/models.dart';
@@ -180,6 +181,8 @@ class _SpatialView extends ConsumerStatefulWidget {
 
 class _SpatialViewState extends ConsumerState<_SpatialView> {
   Map<String, Offset2D>? _positions;
+  String? _loadedFolder;
+  final _pendingPositions = <String, Offset2D>{};
 
   @override
   void initState() {
@@ -195,6 +198,11 @@ class _SpatialViewState extends ConsumerState<_SpatialView> {
 
   void _load() {
     final folder = ref.read(tabsProvider).active.path;
+    // Audit item 32: DB reads happen only when the folder actually changes,
+    // not on every rebuild.
+    if (_loadedFolder == folder && _positions != null) return;
+    _loadedFolder = folder;
+    _pendingPositions.clear();
     _positions = ref.read(servicesProvider).db.spatialFor(folder);
   }
 
@@ -210,16 +218,33 @@ class _SpatialViewState extends ConsumerState<_SpatialView> {
       return Stack(
         children: [
           Positioned.fill(
-            child: DragTarget<List<String>>(
+            child: DragTarget<Object>(
+              // Audit item 32: tiles drag NexusEntry objects while spatial
+              // callers may drag path lists — accept both and normalize,
+              // so drops actually land and the toast reflects reality.
               onWillAcceptWithDetails: (_) => true,
               onAcceptWithDetails: (d) async {
+                List<String> paths;
+                final data = d.data;
+                if (data is NexusEntry) {
+                  paths = [data.path];
+                } else if (data is List<String>) {
+                  paths = data;
+                } else {
+                  return;
+                }
                 final dest = folder;
                 final svc = ref.read(servicesProvider);
                 final batch = svc.journal.newBatch('move');
-                await svc.ops.movePaths(d.data, dest, batchId: batch);
-                svc.ops.finish(batch);
-                toast(ref, 'Moved ${d.data.length} item(s) into spatial view');
-                ref.read(tabsProvider.notifier).refresh();
+                try {
+                  await svc.ops.movePaths(paths, dest, batchId: batch);
+                  toast(ref, 'Moved ${paths.length} item(s) into spatial view');
+                  ref.read(tabsProvider.notifier).refresh();
+                } catch (e) {
+                  toast(ref, 'Move failed: $e', error: true);
+                } finally {
+                  svc.ops.finish(batch);
+                }
               },
               builder: (_, candidates, __) => candidates.isNotEmpty
                   ? DecoratedBox(
@@ -257,13 +282,25 @@ class _SpatialViewState extends ConsumerState<_SpatialView> {
         childWhenDragging: Opacity(opacity: 0.35, child: _SpatialCard(entry: e)),
         child: GestureDetector(
           onPanUpdate: (d) {
-            final folder = ref.read(tabsProvider).active.path;
+            // Audit item 32: drag in memory; persist only on pan end so a
+            // single drag writes ONE row instead of one per frame.
             final next = Offset(
               (pos.dx + d.delta.dx).clamp(0.0, (box.maxWidth - 96).clamp(0.0, double.infinity)),
               (pos.dy + d.delta.dy).clamp(0.0, (box.maxHeight - 110).clamp(0.0, double.infinity)),
             );
-            ref.read(servicesProvider).db.putSpatial(folder, e.name, next.dx, next.dy);
-            setState(() => _positions?[e.name] = Offset2D(next.dx, next.dy));
+            setState(() {
+              _positions?[e.name] = Offset2D(next.dx, next.dy);
+              _pendingPositions[e.name] = Offset2D(next.dx, next.dy);
+            });
+          },
+          onPanEnd: (_) {
+            if (_pendingPositions.isEmpty) return;
+            final folder = ref.read(tabsProvider).active.path;
+            final db = ref.read(servicesProvider).db;
+            for (final entry in _pendingPositions.entries) {
+              db.putSpatial(folder, entry.key, entry.value.x, entry.value.y);
+            }
+            _pendingPositions.clear();
           },
           child: _SpatialCard(entry: e),
         ),
@@ -457,63 +494,99 @@ class _FileTileState extends ConsumerState<FileTile> {
     final entry = widget.entry;
     final selected = ref.watch(
         tabsProvider.select((s) => s.active.selection.contains(entry.path)));
-    final ui = ref.watch(uiProvider);
-    final look = ref.watch(lookProvider);
+    // Audit item 28: narrow watch — only the fields this tile consumes,
+    // so unrelated UI-state churn no longer rebuilds every tile.
+    final tunnelPath = ref.watch(uiProvider.select((u) => u.focusTunnelPath));
+    final colorblindSafe = ref.watch(lookProvider.select((l) => l.colorblindSafe));
 
-    final tunnelActive = ui.focusTunnelPath != null;
-    final dimmed = tunnelActive && ui.focusTunnelPath != entry.path;
+    final tunnelActive = tunnelPath != null;
+    final dimmed = tunnelActive && tunnelPath != entry.path;
 
-    final tile = FileTileBody(
-      entry: entry,
-      selected: selected,
-      listMode: widget.listMode,
-      hover: _hover,
+    final tile = RepaintBoundary(
+      child: FileTileBody(
+        entry: entry,
+        selected: selected,
+        listMode: widget.listMode,
+        hover: _hover,
+      ),
     );
 
     return GestureDetector(
-      onTap: () => _select(selected, entry),
-      onDoubleTap: () => _open(entry),
+      // Audit item 26: single tap opens on touch devices; selection moves
+      // to long-press. Desktop keeps tap-select + double-click-to-open.
+      onTap: () => isTouchDevice ? _open(entry) : _select(selected, entry),
+      onDoubleTap: isTouchDevice ? null : () => _open(entry),
       onSecondaryTapUp: (d) =>
           Overlays.showEntryMenu(context, ref, entry, d.globalPosition),
-      onLongPressStart: (d) =>
-          Overlays.showEntryMenu(context, ref, entry, d.globalPosition),
-      child: Draggable<NexusEntry>(
-        data: entry,
-        onDragStarted: () {
-          ref.read(chrome.dragActiveProvider.notifier).state = true;
-          final sel = ref.read(tabsProvider).active.selection;
-          ref.read(chrome.dragPathsProvider.notifier).state =
-              sel.contains(entry.path) ? sel.toList() : [entry.path];
-        },
-        onDragEnd: (_) =>
-            ref.read(chrome.dragActiveProvider.notifier).state = false,
-        feedback: _Feedback(entry: entry),
-        childWhenDragging: Opacity(opacity: 0.35, child: tile),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _hover = true),
-          onExit: (_) {
-            setState(() => _hover = false);
-            ref.read(uiProvider.notifier).setPeek(null);
-          },
-          onHover: (_) {
-            if (HardwareKeyboard.instance.isAltPressed) {
-              ref.read(uiProvider.notifier).setPeek(entry.path);
-            }
-          },
-          child: _SelectionBorder(
-            selected: selected,
-            colorblindSafe: look.colorblindSafe,
-            category: entry.category,
-            child: dimmed
-                ? ColorFiltered(
-                    colorFilter: const ColorFilter.mode(
-                        Colors.black54, BlendMode.saturation),
-                    child: Opacity(opacity: 0.35, child: tile),
-                  )
-                : tile,
-          ),
-        ),
+      onLongPressStart: (d) {
+        // Touch: long-press enters selection mode; desktop shows the menu.
+        if (isTouchDevice) {
+          final c = ref.read(tabsProvider.notifier);
+          c.selectOnly(entry.path);
+        } else {
+          Overlays.showEntryMenu(context, ref, entry, d.globalPosition);
+        }
+      },
+      child: _buildDrag(entry, tile, colorblindSafe),
+    );
+  }
+
+  Widget _buildDrag(NexusEntry entry, Widget tile, bool colorblindSafe) {
+    final onDragStarted = () {
+      ref.read(chrome.dragActiveProvider.notifier).state = true;
+      final sel = ref.read(tabsProvider).active.selection;
+      ref.read(chrome.dragPathsProvider.notifier).state =
+          sel.contains(entry.path) ? sel.toList() : [entry.path];
+    };
+    final onDragEnd = (_) => ref.read(chrome.dragActiveProvider.notifier).state = false;
+    // Audit item 27: LongPressDraggable on touch so drags do not fight the
+    // scroll gesture; plain Draggable stays on desktop.
+    final Widget drag = isTouchDevice
+        ? LongPressDraggable<NexusEntry>(
+            data: entry,
+            onDragStarted: onDragStarted,
+            onDragEnd: onDragEnd,
+            feedback: _Feedback(entry: entry),
+            childWhenDragging: Opacity(opacity: 0.35, child: tile),
+            child: _tileInner(entry, tile, colorblindSafe),
+          )
+        : Draggable<NexusEntry>(
+            data: entry,
+            onDragStarted: onDragStarted,
+            onDragEnd: onDragEnd,
+            feedback: _Feedback(entry: entry),
+            childWhenDragging: Opacity(opacity: 0.35, child: tile),
+            child: _tileInner(entry, tile, colorblindSafe),
+          );
+    return drag;
+  }
+
+  Widget _tileInner(NexusEntry entry, Widget tile, bool colorblindSafe) {
+    final tunnelPath = ref.watch(uiProvider.select((u) => u.focusTunnelPath));
+    final dimmed = tunnelPath != null && tunnelPath != entry.path;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) {
+        setState(() => _hover = false);
+        ref.read(uiProvider.notifier).setPeek(null);
+      },
+      onHover: (_) {
+        if (HardwareKeyboard.instance.isAltPressed) {
+          ref.read(uiProvider.notifier).setPeek(entry.path);
+        }
+      },
+      child: _SelectionBorder(
+        selected: ref.read(tabsProvider).active.selection.contains(entry.path),
+        colorblindSafe: colorblindSafe,
+        category: entry.category,
+        child: dimmed
+            ? ColorFiltered(
+                colorFilter: const ColorFilter.mode(
+                    Colors.black54, BlendMode.saturation),
+                child: Opacity(opacity: 0.35, child: tile),
+              )
+            : tile,
       ),
     );
   }

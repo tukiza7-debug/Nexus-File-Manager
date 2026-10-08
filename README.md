@@ -153,37 +153,6 @@ flutter run
 
 ---
 
-## Development Roadmap
-
-### Phase 1 — Foundation
-- Project structure + theming system
-- Logo animation (splash)
-- Core file navigation (list + grid)
-- Basic file operations
-- Dark / Light mode
-
-### Phase 2 — Core Experience
-- Breadcrumb Timeline
-- Work Session
-- Multi-Clipboard Stack
-- Zen Mode
-- Peek Preview
-- Floating Inspector
-
-### Phase 3 — Power Features
-- Live Folder Mirror
-- Batch Rule Engine
-- File Transform Pipeline
-- Folder Watchdog
-- All remaining features
-
-### Phase 4 — Polish & Release
-- Full platform optimization
-- Performance tuning
-- App store ready builds
-
----
-
 ## Contributing
 
 This project is in active full development.  
@@ -198,3 +167,4 @@ MIT License
 ---
 
 **Nexus File Manager** — Built with care.
+

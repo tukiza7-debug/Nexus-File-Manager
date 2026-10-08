@@ -49,9 +49,29 @@ class NexusMetrics {
   final double textScaleClamp;
 
   /// Build metrics from the current [MediaQuery].
+  ///
+  /// Safe to call above [MaterialApp]: if no MediaQuery is in the tree yet
+  /// (root [NexusApp] build), we fall back to [PlatformDispatcher] / a
+  /// phone-sized default so startup never throws → grey native window.
   static NexusMetrics of(BuildContext context, {bool touchMode = false}) {
-    final mq = MediaQuery.of(context);
-    final size = mq.size;
+    final mq = MediaQuery.maybeOf(context);
+    Size size;
+    if (mq != null && mq.size.width > 0 && mq.size.height > 0) {
+      size = mq.size;
+    } else {
+      // Root / first frame: approximate from the platform view.
+      final views = WidgetsBinding.instance.platformDispatcher.views;
+      if (views.isNotEmpty) {
+        final v = views.first;
+        final dpr = v.devicePixelRatio == 0 ? 1.0 : v.devicePixelRatio;
+        size = Size(v.physicalSize.width / dpr, v.physicalSize.height / dpr);
+      } else {
+        size = const Size(360, 640); // compact phone fallback
+      }
+    }
+    if (size.width <= 0 || size.height <= 0) {
+      size = const Size(360, 640);
+    }
     final shortest = size.shortestSide;
     final width = size.width;
 

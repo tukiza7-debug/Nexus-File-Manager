@@ -153,6 +153,15 @@ class SettingsScreen extends ConsumerWidget {
                 value: look.touchMode,
                 onChanged: (v) => ref.read(lookProvider.notifier).setTouchMode(v),
               ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Zen mode'),
+                subtitle: const Text(
+                    'Hide chrome for a focused file view. Off by default — only on when you enable it here.',
+                    style: TextStyle(fontSize: 12)),
+                value: ref.watch(uiProvider.select((s) => s.zenMode)),
+                onChanged: (v) => ref.read(uiProvider.notifier).setZen(v),
+              ),
             ],
           ),
 

@@ -228,7 +228,12 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
       const SingleActivator(LogicalKeyboardKey.keyF, control: true): _filterFocus.requestFocus,
       const SingleActivator(LogicalKeyboardKey.delete): _deleteSelection,
       const SingleActivator(LogicalKeyboardKey.f2): _renameSelection,
-      const SingleActivator(LogicalKeyboardKey.f1): () => ref.read(uiProvider.notifier).toggleZen(),
+      // F1 only exits Zen — entering is Settings-only (avoids accidental zen on mobile keyboards).
+      const SingleActivator(LogicalKeyboardKey.f1): () {
+        if (ref.read(uiProvider).zenMode) {
+          ref.read(uiProvider.notifier).setZen(false);
+        }
+      },
       const SingleActivator(LogicalKeyboardKey.escape): () {
         final u = ref.read(uiProvider);
         if (u.zenMode) ref.read(uiProvider.notifier).toggleZen();
@@ -477,10 +482,13 @@ class _TitleBarState extends ConsumerState<_TitleBar> {
                   }
                 }),
           ],
-          _IconBtn(
-              zen ? Icons.fullscreen_exit_rounded : Icons.self_improvement_rounded,
-              zen ? 'Exit Zen  ·  F1' : 'Zen mode  ·  F1',
-              () => ref.read(uiProvider.notifier).toggleZen()),
+          // Entering Zen is Settings-only. Title bar only offers Exit while active.
+          if (zen)
+            _IconBtn(
+              Icons.fullscreen_exit_rounded,
+              'Exit Zen',
+              () => ref.read(uiProvider.notifier).setZen(false),
+            ),
           if (_isDesktop) ...const [
             SizedBox(width: 6),
             _WindowControls(),

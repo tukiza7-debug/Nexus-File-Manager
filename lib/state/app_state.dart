@@ -290,12 +290,29 @@ class UiState {
 }
 
 class UiController extends StateNotifier<UiState> {
-  UiController(this.ref) : super(const UiState());
+  /// Zen Mode is off by default and only turns on when the user enables it
+  /// in Settings (persisted as `ui.zenMode`). Accidental F1 / title-bar taps
+  /// on mobile no longer leave the app stuck in zen.
+  UiController(this.ref)
+      : super(UiState(
+          zenMode: ref.read(servicesProvider).prefs.getBool('ui.zenMode') ?? false,
+          ghostOpacity:
+              ref.read(servicesProvider).prefs.getDouble('ui.ghost') ?? 1.0,
+        ));
 
   final Ref ref;
 
   void toggleSidebar() => state = state.copyWith(sidebarVisible: !state.sidebarVisible);
-  void toggleZen() => state = state.copyWith(zenMode: !state.zenMode);
+
+  /// Explicit set — used by Settings. Always persisted.
+  void setZen(bool enabled) {
+    state = state.copyWith(zenMode: enabled);
+    ref.read(servicesProvider).prefs.setBool('ui.zenMode', enabled);
+  }
+
+  /// Toggle (desktop exit / Escape). Also persisted so state stays consistent.
+  void toggleZen() => setZen(!state.zenMode);
+
   void toggleHidden() => state = state.copyWith(showHidden: !state.showHidden);
   void toggleSplitType() => state = state.copyWith(splitTypeView: !state.splitTypeView);
   void setFilter(String q) => state = state.copyWith(filter: q);

@@ -4,6 +4,7 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -310,19 +311,31 @@ class ZenOverlay extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tab = ref.watch(tabsProvider.select((s) => s.active));
-    return IgnorePointer(
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 40),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: NexusColors.navy.withValues(alpha:  0.85),
+    final mobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+    final hint = mobile
+        ? '${pu.basename(tab.path)}  ·  Tap to exit zen'
+        : '${pu.basename(tab.path)}  ·  F1 exits zen';
+    // Tappable so Android users can leave without hunting the title-bar icon.
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 40),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
             borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            '${pu.basename(tab.path)}  ·  F1 exits zen',
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            onTap: () => ref.read(uiProvider.notifier).setZen(false),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: NexusColors.navy.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                hint,
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ),
           ),
         ),
       ),

@@ -1,159 +1,98 @@
 # Nexus File Manager
 
-**Powerful. Precise. Beautiful.**
+**Powerful. Precise. Beautiful.** — a keyboard-first, cross-platform file manager built with Flutter, for Android, iOS, Windows, macOS and Linux.
 
 <p align="center">
-  <img src="assets/logo/nexus-logo-primary.svg" alt="Nexus File Manager Logo" width="200"/>
+  <img src="assets/logo/nexus-logo-primary.svg" width="220" alt="Nexus logo" />
 </p>
 
-<p align="center">
-  <strong>Modern cross-platform file manager</strong><br>
-  Android • iOS • Windows • macOS • Linux
-</p>
-
-Nexus is a premium, fast, and uniquely powerful file manager built with Flutter.  
-It combines refined design, high performance, and carefully crafted features — without bloat or unnecessary complexity.
+Nexus is a full file manager: a fast, custom-designed browsing core plus 36 deeply integrated power features — live mirroring, transform pipelines, LAN teleports, a complete reversible operation journal and more. Nothing is a mock: every feature drives real file operations through one audited core.
 
 ---
 
-## Official Logo
-
-All logo assets are available in [`assets/logo/`](assets/logo/).
-
-| File | Usage |
-|------|-------|
-| `nexus-logo-primary.svg` | Main brand logo |
-| `nexus-icon.svg` | App icon (all platforms) |
-| `nexus-logo.svg` | Alternative version |
-
-A polished **logo animation** is required on every app launch.
-
----
-
-## Vision
-
-Most file managers are either too basic or overloaded with disconnected features.  
-Nexus aims to be different:
-
-- Exceptionally clean and polished UI
-- Excellent experience on both mobile and desktop
-- Unique productivity features that actually matter
-- Fast and lightweight
-- Fully open source
-
----
-
-## Tech Stack
-
-| Layer              | Technology                          |
-|--------------------|-------------------------------------|
-| Framework          | Flutter (latest stable)             |
-| Language           | Dart (null safety)                  |
-| State Management   | Riverpod 2                          |
-| Navigation         | GoRouter                            |
-| Database           | Isar / Drift                        |
-| Animations         | Flutter + flutter_animate           |
-| Theming            | Custom Material 3                   |
-| Platforms          | Android, iOS, Windows, macOS, Linux |
-
----
-
-## Features
-
-### Navigation & Organization
-- **Live Folder Mirror** — Virtual folders that stay in sync both ways
-- **Breadcrumb Timeline** — Scrollable history of visited paths
-- **Path Alias** — Create short custom aliases for long paths
-- **Folder Stack** — Group multiple folders into expandable stacks
-- **Ghost Mode** — Hide specific files and reveal with hotkey/gesture
-- **Spatial Memory** — Remember view positions and layout per folder
-- **Pin to Edge / Favorites Dock** — Quick access to important items
-- **Work Session** — Save & restore entire workspace state
-
-### File Operations
-- **Smart Paste** — Intelligent conflict handling
-- **Multi-Clipboard Stack** — Multiple clipboard items with quick selector
-- **File Transform Pipeline** — Chain actions (rename → convert → move, etc.)
-- **Visual File Splitter** — Split large files with visual control
-- **Merge Files** — Merge PDFs, text files, and images
-- **Content-Aware Rename** — Rename using content from PDF/EPUB etc.
-- **Batch Rule Engine** — Create powerful if-then rules
-- **Deep Undo History** — Searchable undo stack
-- **File Diff View** — Side-by-side comparison
-- **Drag to Action Zone** — Quick action zones
-
-### Interface & Experience
-- **Zen Mode** — Distraction-free minimal interface
-- **Peek Preview** — Quick preview of folder/file contents
-- **Floating Inspector** — Detachable details panel
-- **Split by Type** — Automatically split view by file type
-- **Focus Tunnel** — Blur non-focused items
-- **Color Blind Safe Mode**
-- **One-Hand Mode** — Optimized for large phones
-- **Legacy Themes** — Retro-inspired themes
-
-### Automation
-- Macro Recorder
-- Folder Watchdog
-- Scheduled Actions
-- Template Drop
-- Auto Versioning
-- Batch Metadata Editor
-
-### Extra
-- File Teleport (local network)
-- Paper Trail (full file movement history)
-- Secure Freeze
-- Quick Session Switcher
-
----
-
-## Platform Support
-
-| Platform  | Support       | Notes                                |
-|-----------|---------------|--------------------------------------|
-| Android   | Full support  | Scoped Storage + SAF                 |
-| iOS       | Full support  | Proper sandboxing                    |
-| Windows   | Full support  | Native dialogs + keyboard shortcuts  |
-| macOS     | Full support  | Native feel + keyboard shortcuts     |
-| Linux     | Full support  | Desktop file integration             |
-
----
-
-## Design Principles
-
-- No AI slop
-- No vibe coding
-- Every UI decision must feel intentional
-- Performance and clarity over feature count
-- Beautiful dark mode & light mode as first-class citizens
-- Excellent touch experience on mobile
-- Keyboard-first on desktop
-
----
-
-## Getting Started
+## Quick start
 
 ```bash
-git clone https://github.com/tukiza7-debug/Nexus-File-Manager.git
-cd Nexus-File-Manager
 flutter pub get
-flutter run
+flutter run                # pick a device: Windows / macOS / Linux / Android / iOS
 ```
 
----
+Requirements: Flutter (stable, Dart 3.5+). No codegen, no native setup steps — `pub get` is the whole install.
 
-## Contributing
+## Feature map
 
-This project is in active full development.  
-High-quality contributions are welcome once the core architecture is stabilized.
+| # | Feature | Where |
+|---|---------|-------|
+| 1 | **Live Folder Mirror** — continuous two-way sync pairs | Tools → Mirror |
+| 2 | **Breadcrumb Timeline** — every stop a tab made, one click away | Explorer breadcrumb bar |
+| 3 | **Path Alias** — name any folder, jump by name (also in palette) | Sidebar · Aliases |
+| 4 | **Folder Stack** — snapshot open tabs as a named stack | Sidebar · Folder Stacks |
+| 5 | **Ghost Mode** — instant window transparency (`Ctrl G`) | Title bar / shortcut |
+| 6 | **Spatial Memory** — free tile placement remembered per folder | Explorer · spatial toggle |
+| 7 | **Pin to Edge / Favorites Dock** — four edge docks, drag-to-pin | Shell edges |
+| 8 | **Work Session** — full workspace save/restore + autosave recovery | `Ctrl S` · Sessions |
+| 9 | **Smart Paste** — per-item conflict resolution dialog | `Ctrl V` |
+| 10 | **Multi-Clipboard Stack** — 25 slots, active slot model | Sidebar · Clipboard Stack |
+| 11 | **File Transform Pipeline** — visual step chain with live name preview | Tools → Pipeline |
+| 12 | **Visual File Splitter** — by parts or byte marker | Tools → Splitter |
+| 13 | **Merge Files** — PDF pages, images, CSV, text, binary rejoin | Tools → Merge |
+| 14 | **Content-Aware Rename** — EXIF/ID3/doc-driven patterns | Tools → Rename |
+| 15 | **Batch Rule Engine** — if-then rules with plan preview | Automation → Rules |
+| 16 | **Deep Undo History** — searchable, batch-level, undo *and* redo | `Ctrl Z/Y` · Paper Trail |
+| 17 | **File Diff View** — line diff with word highlights | Tools → Diff |
+| 18 | **Drag to Action Zone** — drop files on the edge to move/copy/zip/freeze/teleport/pipeline | Drag any tile |
+| 19 | **Zen Mode** (`F1`) | Title bar |
+| 20 | **Peek Preview** — Alt+hover card with text/image/metadata | Explorer |
+| 21 | **Floating Inspector** — draggable metadata panel (`Ctrl I`) | Explorer |
+| 22 | **Split by Type** — tabs per category | Explorer view menu |
+| 23 | **Focus Tunnel** — dim everything but the focused item | Context menu |
+| 24 | **Color Blind Safe Mode** — pattern textures, never colour alone | Settings |
+| 25 | **One-Hand / Touch Mode** — big tiles + thumb action bar | Settings |
+| 26 | **Legacy Themes** — Windows 98 / XP / 7 personality packs | Settings |
+| 27 | **Macro Recorder** — record real operations, replay anywhere | Automation → Macros |
+| 28 | **Folder Watchdog** — folder triggers → actions, live feed | Automation → Watchdog |
+| 29 | **Scheduled Actions** — one-shot and repeating jobs | Automation → Scheduler |
+| 30 | **Template Drop** — file/folder/text templates with tokens | Automation → Templates |
+| 31 | **Auto Versioning** — snapshot before overwrite, restore anytime | Tools → Versions |
+| 32 | **Batch Metadata Editor** — EXIF, ID3 and document properties | Automation → Metadata |
+| 33 | **File Teleport** — UDP discovery + TCP push across your LAN | Tools → Teleport |
+| 34 | **Paper Trail** — every operation, searchable and reversible | `Ctrl Z` · Paper Trail |
+| 35 | **Secure Freeze** — lock files read-only, enforced by every writer | Context menu |
+| 36 | **Quick Session Switcher** — fuzzy session jump (`Ctrl Shift S`) | Global |
 
----
+Keyboard-first: `Ctrl K` command palette, `Ctrl Z / Y` undo/redo, `F2` rename, `Del` delete, `F1` zen, `F5` refresh, `Ctrl B` sidebar, `Ctrl H` hidden files, `Ctrl I` inspector, `Ctrl D` new tab, `Ctrl W` close tab, `Ctrl S` save session, `Ctrl Shift S` session switcher.
 
-## License
+## Architecture
 
-MIT License
+```
+lib/
+├── core/            # theme (Nexus design system + legacy brands), router,
+│   ├── services/    # file ops, journal, mirror, watchdog, scheduler, teleport,
+│   │                # metadata (EXIF/ID3/docProps), diff, merge, split, rules…
+│   ├── db/          # sqlite3 data layer (WAL), typed DAOs
+│   └── utils/       # result types, path/format helpers, fuzzy matcher
+├── domain/          # pure models & enums (no Flutter imports)
+├── state/           # Riverpod 2 wiring: services, tabs, directory, settings
+└── features/        # feature-first UI: splash, explorer, tools, papertrail,
+                     # sessions, settings
+```
 
----
+- **Clean layering** — presentation → state → services/domain → data; models are plain Dart, testable off-UI.
+- **One choke point** — every mutation flows through `FileOpsService`: freeze enforcement → execution → journal record → progress broadcast. Undo, macros, watchdogs and schedules all share it.
+- **Performance** — directory listings load in isolates, watchers are debounced, and SQLite (WAL) keeps history queries instant even with thousands of entries.
 
-**Nexus File Manager** — Built with care.
+## Platforms
+
+| Platform | Notes |
+|----------|-------|
+| Windows / macOS / Linux | Custom frameless window, native open/reveal, real window-opacity Ghost Mode |
+| Android | SAF-friendly storage access, touch mode with one-hand bar |
+| iOS | Document browsing + Teleport over local network |
+
+## Tests
+
+```bash
+flutter test
+```
+
+Covers the diff engine, rule engine, path utilities and fuzzy matcher.

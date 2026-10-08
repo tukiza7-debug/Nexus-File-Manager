@@ -50,7 +50,7 @@ class LegacyThemes {
         labelLarge: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black),
       ),
       splashFactory: NoSplash.splashFactory,
-      dialogTheme: const DialogTheme(
+      dialogTheme: const DialogThemeData(
         backgroundColor: Color(0xFFC0C0C0),
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(),
@@ -99,7 +99,7 @@ class LegacyThemes {
           shape: WidgetStatePropertyAll(RoundedRectangleBorder()),
         ),
       ),
-      cardTheme: const CardTheme(
+      cardTheme: const CardThemeData(
         color: Color(0xFFC0C0C0),
         elevation: 0,
         shape: RoundedRectangleBorder(),
@@ -141,7 +141,7 @@ class LegacyThemes {
         bodySmall: TextStyle(fontSize: 12, color: Color(0xFF4A4A4A)),
         labelLarge: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black),
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: const Color(0xFFECE9D8),
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -180,7 +180,7 @@ class LegacyThemes {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: const Color(0xFFECE9D8),
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
@@ -217,7 +217,7 @@ class LegacyThemes {
         bodySmall: TextStyle(fontSize: 12, color: Color(0xFF4A5568)),
         labelLarge: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A)),
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: const Color(0xFFF0F0F0),
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
@@ -259,7 +259,7 @@ class LegacyThemes {
           side: BorderSide(color: Colors.black.withOpacity( 0.25)),
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: const Color(0xFFF0F0F0),
         elevation: 0,
         shape: RoundedRectangleBorder(

@@ -133,7 +133,7 @@ class NexusTheme {
         iconTheme: IconThemeData(
             color: isDark ? NexusColors.textDark : NexusColors.textLight),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: isDark ? NexusColors.surfaceDark : NexusColors.surfaceLight,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -240,7 +240,7 @@ class NexusTheme {
         ),
         textStyle: textTheme.bodyMedium,
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor:
             isDark ? NexusColors.surfaceDark : NexusColors.surfaceLight,
         surfaceTintColor: Colors.transparent,
@@ -291,7 +291,7 @@ class NexusTheme {
                 isDark ? NexusColors.textDimDark : NexusColors.textDimLight,
             fontFamily: fontFamily),
       ),
-      tabBarTheme: TabBarTheme(
+      tabBarTheme: TabBarThemeData(
         labelColor: accent,
         unselectedLabelColor:
             isDark ? NexusColors.textDimDark : NexusColors.textDimLight,

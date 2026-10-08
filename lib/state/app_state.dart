@@ -6,6 +6,7 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as pp;
 import 'package:path_provider/path_provider.dart';
@@ -295,6 +296,8 @@ class UiController extends StateNotifier<UiState> {
   /// on mobile no longer leave the app stuck in zen.
   UiController(this.ref)
       : super(UiState(
+          sidebarVisible: ref.read(servicesProvider).prefs.getBool('ui.sidebar') ??
+              !(!kIsWeb && (Platform.isAndroid || Platform.isIOS)),
           zenMode: ref.read(servicesProvider).prefs.getBool('ui.zenMode') ?? false,
           ghostOpacity:
               ref.read(servicesProvider).prefs.getDouble('ui.ghost') ?? 1.0,
@@ -302,7 +305,11 @@ class UiController extends StateNotifier<UiState> {
 
   final Ref ref;
 
-  void toggleSidebar() => state = state.copyWith(sidebarVisible: !state.sidebarVisible);
+  void toggleSidebar() {
+    final next = !state.sidebarVisible;
+    state = state.copyWith(sidebarVisible: next);
+    ref.read(servicesProvider).prefs.setBool('ui.sidebar', next);
+  }
 
   /// Explicit set — used by Settings. Always persisted.
   void setZen(bool enabled) {

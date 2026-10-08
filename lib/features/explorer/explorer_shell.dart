@@ -11,15 +11,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../core/services/progress.dart' show OpPhase;
 import '../../core/theme/legacy_themes.dart';
 import '../../core/theme/nexus_theme.dart';
+import '../../core/utils/platform_utils.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/widgets/widgets.dart';
 import '../../domain/enums.dart';
+import '../../l10n/app_localizations.dart';
 import '../../state/app_state.dart';
 import 'screens/chrome.dart';
 import 'screens/overlays.dart';
@@ -38,6 +41,7 @@ class ExplorerShell extends ConsumerStatefulWidget {
 class _ExplorerShellState extends ConsumerState<ExplorerShell>
     implements WindowListener {
   final _filterFocus = FocusNode();
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   StreamSubscription<void>? _incomingSub;
 
   @override
@@ -70,13 +74,13 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
     final svc = ref.read(servicesProvider);
     final batch = svc.journal.nextUndoBatch();
     if (batch == null) {
-      toast(ref, 'Nothing to undo');
+      toast(ref, AppLocalizations.of(context).nothingToUndo);
       return;
     }
     try {
       final desc = await svc.journal
           .undoBatch(batch, onError: (msg) async => toast(ref, msg, error: true));
-      toast(ref, 'Undone · $desc');
+      toast(ref, '${AppLocalizations.of(context).undone} · $desc');
       ref.read(journalProvider.notifier).reload();
       ref.read(tabsProvider.notifier).refresh();
     } catch (e) {
@@ -88,13 +92,13 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
     final svc = ref.read(servicesProvider);
     final batch = svc.journal.nextRedoBatch();
     if (batch == null) {
-      toast(ref, 'Nothing to redo');
+      toast(ref, AppLocalizations.of(context).nothingToRedo);
       return;
     }
     try {
       final desc = await svc.journal
           .redoBatch(batch, onError: (msg) async => toast(ref, msg, error: true));
-      toast(ref, 'Redone · $desc');
+      toast(ref, '${AppLocalizations.of(context).redone} · $desc');
       ref.read(journalProvider.notifier).reload();
       ref.read(tabsProvider.notifier).refresh();
     } catch (e) {
@@ -116,6 +120,7 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
   void _showIncomingBanner() {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
     final shares = ref.read(servicesProvider).incoming.pending;
     if (shares.isEmpty) {
       messenger.clearMaterialBanners();
@@ -126,10 +131,7 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
       ..showMaterialBanner(
         MaterialBanner(
           leading: const Icon(Icons.move_to_inbox_outlined),
-          content: Text(
-            '${shares.length} file${shares.length == 1 ? '' : 's'} '
-            'shared to Nexus — save them into your Downloads folder?',
-          ),
+          content: Text(l10n.incomingShares(shares.length)),
           actions: [
             TextButton(
               onPressed: () async {
@@ -142,13 +144,13 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
                   toast(ref, '$e', error: true);
                 }
               },
-              child: const Text('Save to Downloads'),
+              child: Text(l10n.saveToDownloads),
             ),
             TextButton(
               onPressed: () async {
                 await ref.read(servicesProvider).incoming.discardAll();
               },
-              child: const Text('Discard'),
+              child: Text(l10n.discard),
             ),
           ],
         ),
@@ -210,6 +212,11 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
     final look = ref.watch(lookProvider);
     final decor = LegacyThemes.decorFor(look.brand,
         Theme.of(context).brightness);
+    final l10n = AppLocalizations.of(context);
+    // Audit item 42: phones get the sidebar as a Drawer instead of a
+    // permanently-pinned column.
+    final phone = MediaQuery.sizeOf(context).width < 600;
+    final showGhost = !isTouchDevice; // ghost window opacity is desktop-only
 
     final shortcuts = <ShortcutActivator, VoidCallback>{
       const SingleActivator(LogicalKeyboardKey.keyK, control: true): _openPalette,
@@ -273,58 +280,73 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
         autofocus: true,
         child: _GhostWrap(
           child: Scaffold(
+            key: _scaffoldKey,
             backgroundColor: Colors.transparent,
-            body: Column(
-              children: [
-                _TitleBar(decor: decor, onPalette: _openPalette),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (ui.sidebarVisible && !ui.zenMode)
-                            const Sidebar(),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
-                              child: ClipRRect(
-                                borderRadius:
-                                    BorderRadius.circular(decor.squared ? 0 : 14),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.surface,
-                                    borderRadius: BorderRadius.circular(
-                                        decor.squared ? 0 : 14),
-                                    border: Border.all(
-                                        color: decor.borderColor
-                                            .withValues(alpha:  0.7)),
+            drawer: phone
+                ? Drawer(
+                    width: 304,
+                    child: SafeArea(child: Sidebar(flush: true)))
+                : null,
+            // Audit item 35: edge-to-edge drawing respects system insets.
+            body: SafeArea(
+              child: Column(
+                children: [
+                  _TitleBar(
+                      decor: decor,
+                      onPalette: _openPalette,
+                      phone: phone,
+                      showGhost: showGhost),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (ui.sidebarVisible &&
+                                !ui.zenMode &&
+                                !phone)
+                              const Sidebar(),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
+                                child: ClipRRect(
+                                  borderRadius:
+                                      BorderRadius.circular(decor.squared ? 0 : 14),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.surface,
+                                      borderRadius: BorderRadius.circular(
+                                          decor.squared ? 0 : 14),
+                                      border: Border.all(
+                                          color: decor.borderColor
+                                              .withValues(alpha:  0.7)),
+                                    ),
+                                    child: widget.child,
                                   ),
-                                  child: widget.child,
                                 ),
                               ),
                             ),
-                          ),
-                          if (ref.watch(uiProvider
-                              .select((s) => s.inspectorPath)) !=
-                              null)
-                            const FloatingInspector(),
-                        ],
-                      ),
-                      // Pinned edge docks + drag action zones.
-                      const EdgeDock(edge: Edge.left),
-                      const EdgeDock(edge: Edge.right),
-                      const EdgeDock(edge: Edge.top),
-                      const EdgeDock(edge: Edge.bottom),
-                      const DragActionZone(),
-                      if (ui.focusTunnelPath != null)
-                        const FocusTunnelLayer(),
-                      if (ui.zenMode) const ZenOverlay(),
-                    ],
+                            if (ref.watch(uiProvider
+                                .select((s) => s.inspectorPath)) !=
+                                null)
+                              const FloatingInspector(),
+                          ],
+                        ),
+                        // Pinned edge docks + drag action zones.
+                        const EdgeDock(edge: Edge.left),
+                        const EdgeDock(edge: Edge.right),
+                        const EdgeDock(edge: Edge.top),
+                        const EdgeDock(edge: Edge.bottom),
+                        const DragActionZone(),
+                        if (ui.focusTunnelPath != null)
+                          const FocusTunnelLayer(),
+                        if (ui.zenMode) const ZenOverlay(),
+                      ],
+                    ),
                   ),
-                ),
-                const _StatusBar(),
-              ],
+                  const _StatusBar(),
+                ],
+              ),
             ),
             floatingActionButton: const _MacroFab(),
           ),
@@ -425,10 +447,17 @@ class _GhostWrapState extends ConsumerState<_GhostWrap> {
 // ── Title bar ───────────────────────────────────────────────────────────────
 
 class _TitleBar extends ConsumerStatefulWidget {
-  const _TitleBar({required this.decor, required this.onPalette});
+  const _TitleBar({
+    required this.decor,
+    required this.onPalette,
+    required this.phone,
+    required this.showGhost,
+  });
 
   final LegacyDecor decor;
   final VoidCallback onPalette;
+  final bool phone;
+  final bool showGhost;
 
   @override
   ConsumerState<_TitleBar> createState() => _TitleBarState();
@@ -443,6 +472,9 @@ class _TitleBarState extends ConsumerState<_TitleBar> {
   Widget build(BuildContext context) {
     final ghostOn = ref.watch(uiProvider.select((s) => s.ghostOpacity)) < 1.0;
     final zen = ref.watch(uiProvider.select((s) => s.zenMode));
+    final l10n = AppLocalizations.of(context);
+    // Audit item 41: platform-aware modifier — ⌘ on Apple, Ctrl elsewhere.
+    final mod = modifierKey;
 
     final m = NexusMetrics.of(context, touchMode: ref.watch(lookProvider).touchMode);
     final bar = Container(
@@ -455,13 +487,21 @@ class _TitleBarState extends ConsumerState<_TitleBar> {
       ),
       child: Row(
         children: [
-          Image.asset(
-            'assets/logo/nexus-icon.png',
-            width: 22,
-            height: 22,
-            errorBuilder: (_, __, ___) => const Icon(Icons.hub_rounded,
-                size: 20, color: NexusColors.blueSoft),
-          ),
+          // Audit item 42: phones open the sidebar Drawer from here.
+          if (widget.phone)
+            IconButton(
+              tooltip: l10n.menu,
+              icon: const Icon(Icons.menu_rounded, size: 20),
+              onPressed: () =>
+                  Scaffold.of(context).openDrawer(),
+            )
+          else
+            SvgPicture.asset(
+              'assets/logo/nexus-icon.svg',
+              width: 20,
+              height: 20,
+              fit: BoxFit.contain,
+            ),
           const SizedBox(width: 9),
           if (!zen)
             const Expanded(child: TabsBar())
@@ -471,24 +511,27 @@ class _TitleBarState extends ConsumerState<_TitleBar> {
             const Spacer(),
           ],
           if (!zen) ...[
-            _IconBtn(Icons.search_rounded, 'Command palette  ·  Ctrl K',
+            _IconBtn(Icons.search_rounded, '${l10n.commandPalette}  ·  $mod K',
                 widget.onPalette),
-            _IconBtn(ghostOn ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-                'Ghost mode  ·  Ctrl G',
-                () {
-                  final notifier = ref.read(uiProvider.notifier);
-                  if (ref.read(uiProvider).ghostOpacity >= 1.0) {
-                    notifier.restoreGhost();
-                  } else {
-                    notifier.solidGhost();
-                  }
-                }),
+            // Audit item 42: Ghost mode is a window-opacity trick — hidden
+            // on touch devices where there is no window to fade.
+            if (widget.showGhost)
+              _IconBtn(ghostOn ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                  '${l10n.ghostMode}  ·  $mod G',
+                  () {
+                    final notifier = ref.read(uiProvider.notifier);
+                    if (ref.read(uiProvider).ghostOpacity >= 1.0) {
+                      notifier.restoreGhost();
+                    } else {
+                      notifier.solidGhost();
+                    }
+                  }),
           ],
           // Entering Zen is Settings-only. Title bar only offers Exit while active.
           if (zen)
             _IconBtn(
               Icons.fullscreen_exit_rounded,
-              'Exit Zen',
+              l10n.exitZen,
               () => ref.read(uiProvider.notifier).setZen(false),
             ),
           if (_isDesktop) ...const [
@@ -607,13 +650,18 @@ class _MacroFab extends ConsumerWidget {
     final recording =
         ref.watch(macroRecordingProvider).valueOrNull ?? false;
     if (!recording) return const SizedBox.shrink();
-    return FloatingActionButton.extended(
+    // Audit item 43: no infinite attention-seeking animation when the OS
+    // requests reduced motion — the FAB stays visible and static.
+    final animate = !MediaQuery.of(context).disableAnimations;
+    final fab = FloatingActionButton.extended(
       backgroundColor: NexusColors.danger,
       foregroundColor: Colors.white,
       onPressed: () => context.go('/tools/automation'),
       icon: const Icon(Icons.fiber_manual_record_rounded, size: 18),
-      label: const Text('Recording macro'),
-    ).animate(onPlay: (c) => c.repeat(reverse: true)).fadeIn().shake();
+      label: Text(AppLocalizations.of(context).recordingMacro),
+    );
+    if (!animate) return fab;
+    return fab.animate(onPlay: (c) => c.repeat(reverse: true)).fadeIn().shake();
   }
 }
 
@@ -625,6 +673,7 @@ class _StatusBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context);
     final tab = ref.watch(tabsProvider.select((s) => s.active));
     final dir = ref.watch(dirProvider);
     ref.watch(clipboardProvider);
@@ -644,8 +693,8 @@ class _StatusBar extends ConsumerWidget {
         children: [
           Flexible(
             child: Text(
-              '${dir.entries.length} items'
-              '${selCount > 0 ? '  ·  $selCount selected' : ''}',
+              '${l10n.items(dir.entries.length)}'
+              '${selCount > 0 ? '  ·  ${l10n.selectedCount(selCount)}' : ''}',
               style: Theme.of(context).textTheme.labelSmall,
               overflow: TextOverflow.ellipsis,
             ),
@@ -654,7 +703,7 @@ class _StatusBar extends ConsumerWidget {
             const SizedBox(width: 12),
             const Icon(Icons.content_copy_rounded, size: 11, color: NexusColors.blueSoft),
             const SizedBox(width: 4),
-            Text('$clipCount in stack',
+            Text(l10n.inStack(clipCount),
                 style: Theme.of(context).textTheme.labelSmall),
           ],
           const Spacer(),

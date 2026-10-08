@@ -5,16 +5,15 @@ library;
 
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/nexus_database.dart' show Offset2D;
 import '../../../core/theme/nexus_theme.dart';
-import '../../../core/utils/responsive.dart';
 import '../../../core/utils/format_utils.dart' as f;
 import '../../../core/utils/platform_utils.dart';
+import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../domain/enums.dart';
 import '../../../domain/models.dart';
@@ -119,52 +118,125 @@ class _ListView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
-      children: [
-        Container(
-          height: 30,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? NexusColors.borderDark
-                      : NexusColors.borderLight),
+    final look = ref.watch(lookProvider);
+    final tab = ref.watch(tabsProvider.select((s) => s.active));
+    // Audit item 36: phones (<600 dp) drop the SIZE and KIND columns so the
+    // name gets the room it needs; touch mode widens the header row to a
+    // 48 dp hit target.
+    return LayoutBuilder(builder: (context, box) {
+      final phone = box.maxWidth < 600;
+      final touch = look.touchMode;
+      return Column(
+        children: [
+          Container(
+            height: touch ? 48 : 30,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? NexusColors.borderDark
+                        : NexusColors.borderLight),
+              ),
+            ),
+            child: Row(
+              children: [
+                _head(context, ref, SortBy.name, 'NAME',
+                    active: tab.sortBy == SortBy.name,
+                    ascending: tab.sortDir == SortDir.asc),
+                const SizedBox(width: 8),
+                if (!phone) ...[
+                  _head(context, ref, SortBy.size, 'SIZE',
+                      width: 76,
+                      active: tab.sortBy == SortBy.size,
+                      ascending: tab.sortDir == SortDir.asc),
+                  _head(context, ref, SortBy.modified, 'MODIFIED',
+                      width: 132,
+                      active: tab.sortBy == SortBy.modified,
+                      ascending: tab.sortDir == SortDir.asc),
+                  _head(context, ref, SortBy.type, 'KIND',
+                      width: 90,
+                      active: tab.sortBy == SortBy.type,
+                      ascending: tab.sortDir == SortDir.asc),
+                ] else
+                  _head(context, ref, SortBy.modified, 'MODIFIED',
+                      width: 110,
+                      active: tab.sortBy == SortBy.modified,
+                      ascending: tab.sortDir == SortDir.asc),
+              ],
             ),
           ),
-          child: Row(
-            children: [
-              _head(context, 'NAME'),
-              const SizedBox(width: 8),
-              _head(context, 'SIZE', width: 76),
-              _head(context, 'MODIFIED', width: 132),
-              _head(context, 'KIND', width: 90),
-            ],
-          ),
-        ),
-        Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 1, mainAxisExtent: 36),
-            itemCount: entries.length,
-            itemBuilder: (context, i) => FileTile(
-              entry: entries[i],
-              listMode: true,
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 1, mainAxisExtent: 36),
+              itemCount: entries.length,
+              itemBuilder: (context, i) => FileTile(
+                entry: entries[i],
+                listMode: true,
+              ),
             ),
           ),
-        ),
-      ],
-    );
+        ],
+      );
+    });
   }
 
-  Widget _head(BuildContext context, String label, {double width = 0}) {
+  /// Sortable header (audit item 36): tapping sorts by that column through
+  /// the tab's existing setSort; tapping the active column flips direction.
+  /// An arrow marks the active column, and Semantics expose the control.
+  Widget _head(
+    BuildContext context,
+    WidgetRef ref,
+    SortBy column,
+    String label, {
+    double width = 0,
+    bool active = false,
+    bool ascending = true,
+  }) {
+    final style = Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: active
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).textTheme.labelSmall?.color);
+    final content = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: style),
+        if (active) ...[
+          const SizedBox(width: 2),
+          Icon(ascending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+              size: 11, color: Theme.of(context).colorScheme.primary),
+        ],
+      ],
+    );
+
+    void sort() {
+      final tabs = ref.read(tabsProvider.notifier);
+      final t = ref.read(tabsProvider).active;
+      if (t.sortBy == column) {
+        tabs.setSort(column,
+            t.sortDir == SortDir.asc ? SortDir.desc : SortDir.asc);
+      } else {
+        tabs.setSort(column, SortDir.asc);
+      }
+    }
+
+    final btn = Semantics(
+      button: true,
+      enabled: true,
+      label: 'Sort by ${label.toLowerCase()}${active ? (ascending ? ', ascending' : ', descending') : ''}',
+      child: InkWell(
+        onTap: sort,
+        child: width > 0
+            ? SizedBox(width: width, child: Align(
+                alignment: AlignmentDirectional.centerStart, child: content))
+            : Align(alignment: AlignmentDirectional.centerStart, child: content),
+      ),
+    );
     return width > 0
-        ? SizedBox(
-            width: width,
-            child: Text(label, style: Theme.of(context).textTheme.labelSmall))
-        : Expanded(
-            child: Text(label, style: Theme.of(context).textTheme.labelSmall));
+        ? SizedBox(width: width, child: btn)
+        : Expanded(child: btn);
   }
 }
 
@@ -511,23 +583,31 @@ class _FileTileState extends ConsumerState<FileTile> {
       ),
     );
 
-    return GestureDetector(
-      // Audit item 26: single tap opens on touch devices; selection moves
-      // to long-press. Desktop keeps tap-select + double-click-to-open.
-      onTap: () => isTouchDevice ? _open(entry) : _select(selected, entry),
-      onDoubleTap: isTouchDevice ? null : () => _open(entry),
-      onSecondaryTapUp: (d) =>
-          Overlays.showEntryMenu(context, ref, entry, d.globalPosition),
-      onLongPressStart: (d) {
-        // Touch: long-press enters selection mode; desktop shows the menu.
-        if (isTouchDevice) {
-          final c = ref.read(tabsProvider.notifier);
-          c.selectOnly(entry.path);
-        } else {
-          Overlays.showEntryMenu(context, ref, entry, d.globalPosition);
-        }
-      },
-      child: _buildDrag(entry, tile, colorblindSafe),
+    return Semantics(
+      // Audit item 38: expose selection state and identity to screen
+      // readers instead of an unlabeled tappable.
+      selected: selected,
+      button: true,
+      label: entry.name,
+      value: entry.isDir ? 'Folder' : entry.sizeLabel,
+      child: GestureDetector(
+        // Audit item 26: single tap opens on touch devices; selection moves
+        // to long-press. Desktop keeps tap-select + double-click-to-open.
+        onTap: () => isTouchDevice ? _open(entry) : _select(selected, entry),
+        onDoubleTap: isTouchDevice ? null : () => _open(entry),
+        onSecondaryTapUp: (d) =>
+            Overlays.showEntryMenu(context, ref, entry, d.globalPosition),
+        onLongPressStart: (d) {
+          // Touch: long-press enters selection mode; desktop shows the menu.
+          if (isTouchDevice) {
+            final c = ref.read(tabsProvider.notifier);
+            c.selectOnly(entry.path);
+          } else {
+            Overlays.showEntryMenu(context, ref, entry, d.globalPosition);
+          }
+        },
+        child: _buildDrag(entry, tile, colorblindSafe),
+      ),
     );
   }
 
@@ -694,6 +774,14 @@ class FileTileBody extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Audit item 38: non-colour selection cue — a check badge so
+          // selection does not rely on the accent ring alone.
+          if (selected)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Icon(Icons.check_circle_rounded,
+                  size: 15, color: Theme.of(context).colorScheme.primary),
+            ),
           FileGlyph(category: entry.category, size: m.glyphGrid),
           SizedBox(height: m.isPhone ? 4 : 7),
           Text(
@@ -733,6 +821,13 @@ class FileTileBody extends ConsumerWidget {
       ),
       child: Row(
         children: [
+          // Audit item 38: non-colour selection cue in list rows too.
+          if (selected)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Icon(Icons.check_circle_rounded,
+                  size: 15, color: Theme.of(context).colorScheme.primary),
+            ),
           FileGlyph(category: entry.category, size: m.glyphList),
           const SizedBox(width: 10),
           Expanded(

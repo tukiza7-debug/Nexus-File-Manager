@@ -13,19 +13,37 @@ import '../theme/nexus_theme.dart';
 // ── Toasts ──────────────────────────────────────────────────────────────────
 
 class Toast {
-  const Toast(this.message, {this.error = false});
+  const Toast(
+    this.message, {
+    this.error = false,
+    this.actionLabel,
+    this.onAction,
+  });
   final String message;
   final bool error;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 }
 
 class ToastController extends StateNotifier<List<Toast>> {
   ToastController()
       : super(const []);
 
-  void show(String message, {bool error = false}) {
-    final t = Toast(message, error: error);
+  void show(
+    String message, {
+    bool error = false,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    final t = Toast(message,
+        error: error, actionLabel: actionLabel, onAction: onAction);
     state = [...state, t];
-    Future.delayed(const Duration(milliseconds: 3400), () {
+    // Audit item 39: errors and actionable toasts stay long enough to read
+    // (6 s); plain confirmations keep the snappier 3.4 s.
+    final life = (error || actionLabel != null)
+        ? const Duration(seconds: 6)
+        : const Duration(milliseconds: 3400);
+    Future.delayed(life, () {
       if (mounted) state = state.where((e) => e != t).toList();
     });
   }
@@ -45,46 +63,69 @@ class ToastHost extends ConsumerWidget {
     return Positioned(
       bottom: 24,
       right: 24,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (final t in toasts.take(4))
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              constraints: const BoxConstraints(maxWidth: 420),
-              decoration: BoxDecoration(
-                color: dark ? NexusColors.surface3Dark : NexusColors.navy,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: t.error
-                        ? NexusColors.danger
-                        : (dark ? NexusColors.borderDark : Colors.transparent)),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha:  0.35),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6)),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    t.error ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
-                    size: 16,
-                    color: t.error ? NexusColors.danger : NexusColors.ok,
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(t.message,
-                        style: const TextStyle(color: Colors.white, fontSize: 13)),
-                  ),
-                ],
-              ),
-            ).animate().fadeIn(duration: 180.ms).moveY(begin: 8, end: 0, duration: 200.ms, curve: Curves.easeOutCubic),
-        ],
+      // Audit item 39: never paint over system gesture insets on phones.
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            for (final t in toasts.take(4))
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                constraints: const BoxConstraints(maxWidth: 420),
+                decoration: BoxDecoration(
+                  color: dark ? NexusColors.surface3Dark : NexusColors.navy,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: t.error
+                          ? NexusColors.danger
+                          : (dark ? NexusColors.borderDark : Colors.transparent)),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha:  0.35),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6)),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      t.error ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+                      size: 16,
+                      color: t.error ? NexusColors.danger : NexusColors.ok,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(t.message,
+                          style: const TextStyle(color: Colors.white, fontSize: 13)),
+                    ),
+                    if (t.actionLabel != null && t.onAction != null) ...[
+                      const SizedBox(width: 10),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(6),
+                        onTap: t.onAction,
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          child: Text(
+                            t.actionLabel!,
+                            style: const TextStyle(
+                              color: NexusColors.blueSoft,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ).animate().fadeIn(duration: 180.ms).moveY(begin: 8, end: 0, duration: 200.ms, curve: Curves.easeOutCubic),
+          ],
+        ),
       ),
     );
   }
@@ -376,7 +417,7 @@ class Kbd extends StatelessWidget {
       ),
       child: Text(label,
           style: TextStyle(
-              fontSize: 10.5,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
               fontFamily: NexusTheme.fontFamily,
               color: dark ? NexusColors.textDimDark : NexusColors.textDimLight)),
@@ -417,3 +458,17 @@ class SideBySide extends StatelessWidget {
 
 void toast(WidgetRef ref, String msg, {bool error = false}) =>
     ref.read(toastProvider.notifier).show(msg, error: error);
+
+/// Toast with a trailing action chip (audit item 39) — e.g. "Undo" after a
+/// destructive operation. Errors and actionable toasts live for 6 s.
+void toastAction(
+  WidgetRef ref,
+  String msg, {
+  required String actionLabel,
+  required VoidCallback onAction,
+}) =>
+    ref.read(toastProvider.notifier).show(
+          msg,
+          actionLabel: actionLabel,
+          onAction: onAction,
+        );

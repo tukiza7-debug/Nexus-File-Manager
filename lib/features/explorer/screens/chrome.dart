@@ -497,7 +497,7 @@ class _FloatingInspectorState extends ConsumerState<FloatingInspector> {
               children: [
                 Icon(icon, size: 15, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 2),
-                Text(label, style: const TextStyle(fontSize: 9.5)),
+                Text(label, style: const TextStyle(fontSize: 11)),
               ],
             ),
           ),

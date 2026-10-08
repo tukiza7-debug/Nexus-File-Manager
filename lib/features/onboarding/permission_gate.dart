@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../l10n/app_localizations.dart';
+
 /// First-run permission onboarding (audit item 22).
 ///
 /// Nothing is requested before the first frame: the user sees WHY Nexus
@@ -96,6 +98,8 @@ class _PermissionGateState extends ConsumerState<PermissionGate> {
     }
     if (granted) return widget.child;
     final theme = Theme.of(context);
+    // Audit item 45: onboarding copy ships in en / id / ms via ARB files.
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
@@ -112,17 +116,14 @@ class _PermissionGateState extends ConsumerState<PermissionGate> {
                       size: 56, color: theme.colorScheme.primary),
                   const SizedBox(height: 20),
                   Text(
-                    'Nexus needs storage access',
+                    l10n.storageTitle,
                     style: theme.textTheme.headlineSmall
                         ?.copyWith(fontWeight: FontWeight.w700),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'To browse, organize and manage your files, Nexus needs '
-                    'permission to read and write storage. Without it the '
-                    'app can still work inside its own folders (limited '
-                    'mode). You can change this any time in system settings.',
+                    l10n.storageBody,
                     style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
                     textAlign: TextAlign.center,
                   ),
@@ -130,17 +131,17 @@ class _PermissionGateState extends ConsumerState<PermissionGate> {
                   FilledButton.icon(
                     onPressed: _busy ? null : _request,
                     icon: const Icon(Icons.folder_open_rounded),
-                    label: const Text('Grant storage access'),
+                    label: Text(l10n.grantStorage),
                   ),
                   const SizedBox(height: 10),
                   OutlinedButton(
                     onPressed: _busy ? null : _continueLimited,
-                    child: const Text('Continue in limited mode'),
+                    child: Text(l10n.limitedMode),
                   ),
                   const SizedBox(height: 6),
                   TextButton(
                     onPressed: openAppSettings,
-                    child: const Text('Open system settings'),
+                    child: Text(l10n.openSystemSettings),
                   ),
                 ],
               ),

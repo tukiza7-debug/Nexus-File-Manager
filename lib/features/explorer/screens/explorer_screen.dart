@@ -12,6 +12,7 @@ import '../../../core/services/fs_service.dart';
 import '../../../core/theme/nexus_theme.dart';
 import '../../../core/utils/logger.dart';
 import '../../../core/utils/path_utils.dart' as pu;
+import '../../../core/utils/platform_utils.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../domain/models.dart';
 import '../../../state/app_state.dart';
@@ -224,7 +225,11 @@ class _PeekCardState extends ConsumerState<_PeekCard> {
                 children: [
                   const Icon(Icons.bolt_rounded, size: 12, color: NexusColors.warn),
                   const SizedBox(width: 4),
-                  Text('Alt + hover to peek · Ctrl I to pin inspector',
+                  Text(
+                      // Audit item 41: platform-aware hint wording.
+                      useDesktopHints
+                          ? 'Alt + hover to peek · ${modifierKey} I to pin inspector'
+                          : 'Long-press an entry for actions · tap to open',
                       style: Theme.of(context).textTheme.labelSmall),
                 ],
               ),

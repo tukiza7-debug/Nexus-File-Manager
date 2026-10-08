@@ -16,6 +16,7 @@ import '../../../core/utils/path_utils.dart' as pu;
 import '../../../core/widgets/widgets.dart';
 import '../../../domain/enums.dart';
 import '../../../domain/models.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../state/app_state.dart';
 
 class Overlays {
@@ -132,7 +133,25 @@ class Overlays {
       svc.ops.finish(batch);
       _macro(ref, 'delete', {'paths': paths});
       ref.read(tabsProvider.notifier).clearSelection();
-      toast(ref, 'Deleted $label');
+      // Audit item 39: destructive ops offer an immediate Undo chip so the
+      // user does not have to remember the Paper Trail exists.
+      toastAction(
+        ref,
+        'Deleted $label',
+        actionLabel: AppLocalizations.of(context).undo,
+        onAction: () async {
+          try {
+            final b = svc.journal.nextUndoBatch();
+            if (b == null) return;
+            await svc.journal.undoBatch(
+                b, onError: (msg) async => toast(ref, msg, error: true));
+            ref.read(journalProvider.notifier).reload();
+            ref.read(tabsProvider.notifier).refresh();
+          } catch (e) {
+            toast(ref, '$e', error: true);
+          }
+        },
+      );
     } catch (e) {
       toast(ref, '$e', error: true);
     }
@@ -192,6 +211,7 @@ class Overlays {
       case 'zip':
         final name = await promptDialog(context,
             title: 'Compress selection', initial: 'archive.zip');
+        if (!context.mounted) return; // audit item 44
         if (name == null) return;
         final zipPath0 = pu.join(dest, name);
         if (FileSystemEntity.typeSync(zipPath0) != FileSystemEntityType.notFound) {

@@ -3,6 +3,9 @@
 /// restrained elevation. Also hosts the colour-blind-safe pattern palette.
 library;
 
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 
 import 'package:flutter/material.dart';
 
@@ -118,7 +121,10 @@ class NexusTheme {
       scaffoldBackgroundColor:
           isDark ? NexusColors.bgDark : NexusColors.bgLight,
       splashFactory: InkSparkle.splashFactory,
-      visualDensity: VisualDensity.comfortable,
+      // Compact on phones so the desktop-first chrome does not feel oversized.
+      visualDensity: (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+          ? VisualDensity.compact
+          : VisualDensity.comfortable,
       textTheme: textTheme,
       textSelectionTheme: TextSelectionThemeData(
         cursorColor: accent,

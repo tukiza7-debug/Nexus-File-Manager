@@ -2,12 +2,20 @@
 
 **Powerful. Precise. Beautiful.**
 
+<p align="center">
+  <img src="assets/logo/nexus-logo-primary.svg" alt="Nexus File Manager Logo" width="180"/>
+</p>
+
 Nexus is a modern, cross-platform file manager built with intention.  
 It combines speed, refined design, and carefully chosen unique features — without bloat or unnecessary complexity.
 
 > Currently in early development.
 
+**Official Logo** is available in [`assets/logo/`](assets/logo/).  
+See the logo README for usage guidelines (including the mandatory splash animation).
+
 ---
+
 
 ## Vision
 

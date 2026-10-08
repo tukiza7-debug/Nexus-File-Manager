@@ -1,0 +1,29 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Nexus File Manager - Official Primary Logo
+    Geometric "N" with connected node
+    Colors: Deep Navy (#0A1628) + Electric Blue (#2563EB / #3B82F6)
+  -->
+  
+  <!-- Left vertical bar of N -->
+  <path d="M80 80 L80 432 L160 432 L160 200 L300 432 L400 432 L400 80 L320 80 L320 312 L180 80 Z" fill="#0A1628"/>
+  
+  <!-- Top right folded panel -->
+  <path d="M260 80 L400 80 L400 200 L320 200 L260 140 Z" fill="#0A1628"/>
+  
+  <!-- Blue accent - bottom right -->
+  <path d="M300 300 L400 432 L400 360 L340 300 Z" fill="#2563EB"/>
+  
+  <!-- Blue accent - top -->
+  <path d="M260 80 L320 140 L300 140 L260 110 Z" fill="#3B82F6"/>
+  
+  <!-- Signature connected triangle node -->
+  <g transform="translate(185, 255)">
+    <circle cx="0" cy="20" r="7" fill="#60A5FA"/>
+    <circle cx="40" cy="0" r="7" fill="#60A5FA"/>
+    <circle cx="40" cy="40" r="7" fill="#60A5FA"/>
+    <line x1="0" y1="20" x2="40" y2="0" stroke="#60A5FA" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="40" y1="0" x2="40" y2="40" stroke="#60A5FA" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="40" y1="40" x2="0" y2="20" stroke="#60A5FA" stroke-width="3.5" stroke-linecap="round"/>
+  </g>
+</svg>

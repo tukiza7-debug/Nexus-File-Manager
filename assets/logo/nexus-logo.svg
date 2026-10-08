@@ -1,0 +1,22 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Official Nexus File Manager Logo - Geometric N -->
+  <!-- Deep Navy + Electric Blue -->
+  
+  <!-- Main geometric N structure -->
+  <path d="M96 96 L96 416 L176 416 L176 220 L320 416 L416 416 L416 96 L336 96 L336 292 L192 96 L96 96 Z" fill="#0B1B3A"/>
+  
+  <!-- Top right geometric panel -->
+  <path d="M280 96 L416 96 L416 220 L340 220 L280 160 Z" fill="#0B1B3A"/>
+  
+  <!-- Blue accent panels -->
+  <path d="M320 300 L416 416 L416 340 L360 300 Z" fill="#1E6FFF"/>
+  <path d="M280 96 L340 160 L300 160 L280 140 Z" fill="#3B82F6"/>
+  
+  <!-- Connected node triangle (signature element) -->
+  <circle cx="210" cy="280" r="8" fill="#60A5FA"/>
+  <circle cx="250" cy="250" r="8" fill="#60A5FA"/>
+  <circle cx="250" cy="310" r="8" fill="#60A5FA"/>
+  <line x1="210" y1="280" x2="250" y2="250" stroke="#60A5FA" stroke-width="3"/>
+  <line x1="250" y1="250" x2="250" y2="310" stroke="#60A5FA" stroke-width="3"/>
+  <line x1="250" y1="310" x2="210" y2="280" stroke="#60A5FA" stroke-width="3"/>
+</svg>

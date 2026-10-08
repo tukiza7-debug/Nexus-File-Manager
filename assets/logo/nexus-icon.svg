@@ -1,0 +1,20 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- App Icon version - for taskbar / dock -->
+  <rect width="512" height="512" rx="96" fill="#0A1628"/>
+  
+  <!-- Geometric N -->
+  <path d="M120 120 L120 392 L185 392 L185 220 L290 392 L380 392 L380 120 L315 120 L315 292 L210 120 Z" fill="white"/>
+  
+  <!-- Blue accent -->
+  <path d="M290 280 L380 392 L380 330 L330 280 Z" fill="#3B82F6"/>
+  
+  <!-- Node -->
+  <g transform="translate(210, 250)">
+    <circle cx="0" cy="18" r="6" fill="#60A5FA"/>
+    <circle cx="36" cy="0" r="6" fill="#60A5FA"/>
+    <circle cx="36" cy="36" r="6" fill="#60A5FA"/>
+    <line x1="0" y1="18" x2="36" y2="0" stroke="#60A5FA" stroke-width="3" stroke-linecap="round"/>
+    <line x1="36" y1="0" x2="36" y2="36" stroke="#60A5FA" stroke-width="3" stroke-linecap="round"/>
+    <line x1="36" y1="36" x2="0" y2="18" stroke="#60A5FA" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -16,6 +16,7 @@ import '../core/services/clipboard_service.dart';
 import '../core/services/diff_engine.dart';
 import '../core/services/freeze_service.dart';
 import '../core/services/fs_service.dart';
+import '../core/services/incoming_share.dart';
 import '../core/services/journal.dart';
 import '../core/services/macro_service.dart';
 import '../core/services/merge_service.dart';
@@ -70,6 +71,7 @@ class AppServices {
   late final mirrors = MirrorService(db, ops, watchers, journal);
   late final scheduler = SchedulerService(db, ops, pipelines, mirrors);
   late final teleport = TeleportService(ops);
+  late final incoming = IncomingShareService();
 
   final watchdogFeed = <WatchdogEvent>[];
   final _feedCtrl = StreamController<void>.broadcast();

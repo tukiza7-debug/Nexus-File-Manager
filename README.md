@@ -2,6 +2,8 @@
 
 **Powerful. Precise. Beautiful.** — a keyboard-first, cross-platform file manager built with Flutter, for Android, iOS, Windows, macOS and Linux.
 
+[![CI](https://github.com/tukiza7-debug/Nexus-File-Manager/actions/workflows/ci.yml/badge.svg)](https://github.com/tukiza7-debug/Nexus-File-Manager/actions/workflows/ci.yml)
+
 <p align="center">
   <img src="assets/logo/nexus-logo-primary.svg" width="220" alt="Nexus logo" />
 </p>
@@ -86,8 +88,16 @@ lib/
 | Platform | Notes |
 |----------|-------|
 | Windows / macOS / Linux | Custom frameless window, native open/reveal, real window-opacity Ghost Mode |
-| Android | SAF-friendly storage access, touch mode with one-hand bar |
+| Android | All-files access (requested at first launch), share-sheet receiving (SAF), touch mode with one-hand bar |
 | iOS | Document browsing + Teleport over local network |
+
+## Releases
+
+Pipelines are fully automated on **Flutter 3.47.6 stable**: every push to
+`main` is analyzed, tested, and published as APKs to the rolling **Latest
+Build (Auto)** pre-release; pushing a tag `v1.2.3` additionally builds all
+five platforms and attaches the artifacts to the matching GitHub Release.
+See [docs/RELEASE.md](docs/RELEASE.md) for the full process and signing notes.
 
 ## Tests
 

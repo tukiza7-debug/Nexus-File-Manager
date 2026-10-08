@@ -35,6 +35,9 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          # Pinned to the exact stable build the codebase targets; an unpinned
+          # "channel: stable" caused the AGP/Kotlin/theme breakage of Oct 2026.
+          flutter-version: '3.47.6'
           channel: 'stable'
           cache: true
 
@@ -87,6 +90,12 @@ jobs:
             --build-name=${{ steps.version.outputs.VERSION_NAME }} \
             --build-number=${{ steps.version.outputs.VERSION_CODE }}
 
+      - name: Build Android App Bundle (Play Store)
+        run: |
+          flutter build appbundle --release --no-tree-shake-icons \
+            --build-name=${{ steps.version.outputs.VERSION_NAME }} \
+            --build-number=${{ steps.version.outputs.VERSION_CODE }}
+
       - name: Prepare release folder
         run: |
           mkdir -p release-apks
@@ -96,6 +105,7 @@ jobs:
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "release-apks/NexusFileManager-armeabi-v7a-v${V}.apk"
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk   "release-apks/NexusFileManager-arm64-v8a-v${V}.apk"
           cp build/app/outputs/flutter-apk/app-x86_64-release.apk      "release-apks/NexusFileManager-x86_64-v${V}.apk"
+          cp build/app/outputs/bundle/release/app-release.aab          "release-apks/NexusFileManager-v${V}.aab"
           
           echo "Generated APKs:"
           ls -lh release-apks/

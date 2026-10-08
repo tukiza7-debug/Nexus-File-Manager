@@ -1,0 +1,46 @@
+# Continuous integration for Nexus File Manager.
+#
+# Runs on every push to main, every pull request, and on demand:
+#   1. Resolves dependencies exactly as a fresh clone would.
+#   2. Static analysis with the project's strict lint set.
+#   3. Full unit test suite.
+#
+# The Flutter version is pinned to the exact stable build used by the APK and
+# release pipelines so CI results predict release builds byte-for-byte.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Analyze and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter 3.47.6
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.6
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test

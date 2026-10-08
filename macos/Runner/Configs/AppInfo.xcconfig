@@ -8,7 +8,7 @@
 PRODUCT_NAME = nexus_file_manager
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.nexusFileManager
+PRODUCT_BUNDLE_IDENTIFIER = com.tukiza7.nexusFileManager
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 Nexus. All rights reserved.

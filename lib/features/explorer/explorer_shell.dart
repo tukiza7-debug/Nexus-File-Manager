@@ -3,6 +3,7 @@
 /// status bar, and every overlay (palette, peek, inspector, tunnel, toasts).
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -36,16 +37,24 @@ class ExplorerShell extends ConsumerStatefulWidget {
 class _ExplorerShellState extends ConsumerState<ExplorerShell>
     implements WindowListener {
   final _filterFocus = FocusNode();
+  StreamSubscription<void>? _incomingSub;
 
   @override
   void initState() {
     super.initState();
     if (_isDesktop) windowManager.addListener(this);
+    // Files shared into Nexus from other Android apps (ACTION_SEND).
+    if (!kIsWeb && Platform.isAndroid) {
+      final incoming = ref.read(servicesProvider).incoming;
+      _incomingSub = incoming.changes.listen((_) => _showIncomingBanner());
+      unawaited(incoming.pull());
+    }
   }
 
   @override
   void dispose() {
     if (_isDesktop) windowManager.removeListener(this);
+    unawaited(_incomingSub?.cancel());
     _filterFocus.dispose();
     super.dispose();
   }
@@ -99,6 +108,50 @@ class _ExplorerShellState extends ConsumerState<ExplorerShell>
     } else {
       notifier.restoreGhost();
     }
+  }
+
+  /// Surface files received via Android shares as a material banner with
+  /// save / discard actions. Driven by [IncomingShareService.changes].
+  void _showIncomingBanner() {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final shares = ref.read(servicesProvider).incoming.pending;
+    if (shares.isEmpty) {
+      messenger.clearMaterialBanners();
+      return;
+    }
+    messenger
+      ..clearMaterialBanners()
+      ..showMaterialBanner(
+        MaterialBanner(
+          leading: const Icon(Icons.move_to_inbox_outlined),
+          content: Text(
+            '${shares.length} file${shares.length == 1 ? '' : 's'} '
+            'shared to Nexus — save them into your Downloads folder?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                try {
+                  final dir =
+                      await ref.read(servicesProvider).incoming.saveAll();
+                  toast(ref, 'Saved to $dir');
+                  ref.read(tabsProvider.notifier).refresh();
+                } catch (e) {
+                  toast(ref, '$e', error: true);
+                }
+              },
+              child: const Text('Save to Downloads'),
+            ),
+            TextButton(
+              onPressed: () async {
+                await ref.read(servicesProvider).incoming.discardAll();
+              },
+              child: const Text('Discard'),
+            ),
+          ],
+        ),
+      );
   }
 
   Future<void> _pasteIntoCurrent() async {

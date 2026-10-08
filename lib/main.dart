@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -37,6 +38,18 @@ Future<void> main() async {
           await windowManager.focus();
         },
       );
+    } catch (_) {}
+  }
+
+  // Android storage access: Android 11+ grants whole-filesystem access only
+  // through the "All files access" special-app screen (MANAGE_EXTERNAL_STORAGE),
+  // while Android 10 and below use the classic runtime storage prompt. Both
+  // are safe no-ops once granted; the app remains usable (app dirs only) if
+  // the user declines, mirroring the desktop experience.
+  if (!kIsWeb && Platform.isAndroid) {
+    try {
+      await Permission.storage.request();
+      await Permission.manageExternalStorage.request();
     } catch (_) {}
   }
 
